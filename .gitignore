@@ -1,0 +1,15 @@
+.build/
+dist/
+.swiftpm/
+.DS_Store
+.worktrees/
+
+# Private acceptance evidence belongs outside this repository.
+/result.md
+/shots/
+/docs/superpowers/plans/
+
+# Local release artifacts and audit handoff (may contain private metadata).
+/release/*.zip
+/codex-result.md
+/DONE

@@ -1,0 +1,11 @@
+{
+  "terms": ["CAD"],
+  "contextual_aliases": [
+    {
+      "term": "CAD",
+      "aliases": ["c a d"],
+      "contexts": ["工程制图", "设计图纸"],
+      "note": "仅在工程绘图软件语境中使用此别名；其他语境保留原文"
+    }
+  ]
+}

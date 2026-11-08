@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5B6CF0"/>
+      <stop offset="1" stop-color="#3A3FB8"/>
+    </linearGradient>
+    <linearGradient id="bubble" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EEF0FF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#1B1F6B" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <!-- macOS icon grid: 824x824 squircle-ish at 100,100 -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+  <!-- chat bubble -->
+  <g filter="url(#shadow)">
+    <path d="M250 270 h524 a70 70 0 0 1 70 70 v290 a70 70 0 0 1 -70 70 h-330 l-104 92 v-92 h-90 a70 70 0 0 1 -70 -70 v-290 a70 70 0 0 1 70 -70 z" fill="url(#bubble)"/>
+  </g>
+  <!-- text lines -->
+  <rect x="270" y="350" width="380" height="40" rx="20" fill="#3A3F5C"/>
+  <rect x="270" y="440" width="300" height="40" rx="20" fill="#3A3F5C"/>
+  <rect x="270" y="560" width="230" height="40" rx="20" fill="#B9BED6"/>
+  <!-- wavy underline under line 2 (the suggestion) -->
+  <path d="M272 512 q18.75 -18 37.5 0 t37.5 0 t37.5 0 t37.5 0 t37.5 0 t37.5 0 t37.5 0 t37.5 0" fill="none" stroke="#FF6B5B" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- polish sparkle -->
+  <path d="M700 430 C712 492 730 510 792 522 C730 534 712 552 700 614 C688 552 670 534 608 522 C670 510 688 492 700 430 Z" fill="#2BD19A"/>
+  <path d="M786 352 C791 378 798 385 824 390 C798 395 791 402 786 428 C781 402 774 395 748 390 C774 385 781 378 786 352 Z" fill="#2BD19A" opacity="0.85"/>
+</svg>
