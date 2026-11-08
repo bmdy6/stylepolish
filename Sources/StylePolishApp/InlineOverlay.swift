@@ -68,6 +68,10 @@ final class InlinePanel: NSPanel {
     private let badge = InlinePanel(frame: .zero)
     private var marks: [WaveMark] = []
     private var items: [LocatedSuggestion] = []
+    private var listItems: [LocatedSuggestion] = []
+    private var listAnchor: CGRect?
+    var popupVisible: Bool { popup.isVisible }
+    var popupFrame: CGRect { popup.frame }
     private var field = CGRect.zero
     private var hover: UUID?
     private var hoverStart = Date()
@@ -81,23 +85,26 @@ final class InlinePanel: NSPanel {
         // Scroll long diffs without activation; the panel still cannot become key/main.
         previewPanel.ignoresMouseEvents = false
         waves.ignoresMouseEvents = true; waves.hasShadow = false; waves.contentView = drawing
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.trackHover() } }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.trackHover(at: NSEvent.mouseLocation) } }
     }
     func hide() {
         hidePreview()
         waves.orderOut(nil); popup.orderOut(nil); badge.orderOut(nil)
-        marks = []; items = []; hover = nil; openID = nil
+        marks = []; items = []; listItems = []; listAnchor = nil; hover = nil; openID = nil
     }
-    func show(items: [LocatedSuggestion], field: CGRect, marks: [WaveMark]?) {
+    func show(items: [LocatedSuggestion], field: CGRect, marks: [WaveMark]?, listItems: [LocatedSuggestion]? = nil) {
+        let listItems = listItems ?? items
+        let same = self.items.map(\.id) == items.map(\.id)
+            && self.listItems.map(\.id) == listItems.map(\.id)
+            && self.field == field && self.marks == (marks ?? [])
+        self.items = items; self.listItems = listItems; self.field = field
+        guard !same else { return }
+        popup.orderOut(nil); openID = nil; listAnchor = nil; drawing.highlighted = nil
         guard !items.isEmpty else {
-            waves.orderOut(nil); popup.orderOut(nil); badge.orderOut(nil)
-            self.items = []; self.marks = []; hover = nil; openID = nil
+            waves.orderOut(nil); badge.orderOut(nil)
+            self.marks = []; hover = nil
             return
         }
-        let same = self.items.map(\.id) == items.map(\.id) && self.field == field && self.marks == (marks ?? [])
-        self.items = items; self.field = field
-        guard !same else { return }
-        popup.orderOut(nil); openID = nil; drawing.highlighted = nil
         self.marks = marks ?? []
         if let marks, !marks.isEmpty {
             badge.orderOut(nil)
@@ -138,30 +145,34 @@ final class InlinePanel: NSPanel {
         guard waves.isVisible else { return nil }
         return marks.first { CGRect(x: $0.rect.minX - 2, y: $0.rect.minY - 5, width: max(6, $0.rect.width + 4), height: 8).contains(point) }
     }
-    private func trackHover() {
+    func trackHover(at point: CGPoint) {
         guard NSApp.currentEvent?.type != .rightMouseDown else { return }
-        let point = NSEvent.mouseLocation
         if let mark = hit(point) {
             if hover != mark.id { hover = mark.id; hoverStart = Date() }
             else if Date().timeIntervalSince(hoverStart) >= 0.3, openID != mark.id { open(mark.id) }
         } else {
             hover = nil
-            if popup.isVisible, !(openID == nil && badge.isVisible && badge.frame.union(popup.frame).insetBy(dx: -18, dy: -18).contains(point)), !popup.frame.insetBy(dx: -18, dy: -18).contains(point), !marks.contains(where: { $0.id == openID && $0.rect.insetBy(dx: -18, dy: -18).contains(point) }) {
-                popup.orderOut(nil); openID = nil; drawing.highlighted = nil; drawing.needsDisplay = true
+            // Keep the full path from the clicked entry to its list available.
+            let overListPath = openID == nil
+                && listAnchor?.union(popup.frame).insetBy(dx: -18, dy: -18).contains(point) == true
+            if popup.isVisible, !overListPath, !popup.frame.insetBy(dx: -18, dy: -18).contains(point), !marks.contains(where: { $0.id == openID && $0.rect.insetBy(dx: -18, dy: -18).contains(point) }) {
+                popup.orderOut(nil); openID = nil; listAnchor = nil; drawing.highlighted = nil; drawing.needsDisplay = true
             }
         }
     }
     private func open(_ id: UUID) {
         guard let item = items.first(where: { $0.id == id }), let mark = marks.first(where: { $0.id == id }) else { return }
-        openID = id; drawing.highlighted = id; drawing.needsDisplay = true
+        listAnchor = nil; openID = id; drawing.highlighted = id; drawing.needsDisplay = true
         let card = SuggestionCard(suggestion: item.edit, accept: { [weak self] in self?.accept?(id) }, ignore: { [weak self] in self?.ignore?(id) }, disable: { [weak self] in self?.disable?(item.edit.kind) }, sizeChanged: { [weak self] in
             DispatchQueue.main.async { [weak self] in self?.resizePopup(above: mark.rect) }
         })
         present(card, above: mark.rect, width: 240)
     }
-    func showList() {
-        guard !items.isEmpty else { return }
-        present(SuggestionList(suggestions: items, accept: { [weak self] in self?.accept?($0) }, ignore: { [weak self] in self?.ignore?($0) }, acceptAll: { [weak self] in self?.acceptAll?() }), above: field, width: 280)
+    func showList(from anchor: CGRect? = nil) {
+        guard !listItems.isEmpty else { return }
+        openID = nil; drawing.highlighted = nil; drawing.needsDisplay = true
+        listAnchor = anchor ?? (badge.isVisible ? badge.frame : field)
+        present(SuggestionList(suggestions: listItems, accept: { [weak self] in self?.accept?($0) }, ignore: { [weak self] in self?.ignore?($0) }, acceptAll: { [weak self] in self?.acceptAll?() }), above: field, width: 280)
     }
     private func present<V: View>(_ view: V, above rect: CGRect, width: CGFloat) {
         let host = NSHostingView(rootView: view)

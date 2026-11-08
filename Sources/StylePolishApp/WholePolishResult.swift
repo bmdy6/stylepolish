@@ -7,6 +7,7 @@ struct WholePolishResult {
     let text: String
     let suggestions: [Suggestion]
     let isRewrite: Bool
+    let unclear: Bool
 
     init(raw: String, source: String) throws {
         guard let object = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
@@ -15,6 +16,7 @@ struct WholePolishResult {
               output.utf8.count <= 100_000 else {
             throw PolishFailure(message: "模型建议格式无效，请重试")
         }
+        unclear = object["unclear"] as? Bool ?? false
         if !source.hasSuffix("。"), output.hasSuffix("。") { output.removeLast() }
         if PolishTextComparison.key(source) == PolishTextComparison.key(output) {
             text = source; suggestions = []; isRewrite = false

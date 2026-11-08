@@ -6,9 +6,10 @@ private protocol EvaluationResult {
     var text: String { get }
     var suggestions: [Suggestion] { get }
     var isRewrite: Bool { get }
+    var unclear: Bool { get }
 }
 extension WholePolishResult: EvaluationResult {}
-extension PlainTextCandidateResult: EvaluationResult {}
+extension PlainTextCandidateResult: EvaluationResult { var unclear: Bool { false } }
 
 private func evaluate(_ raw: String, source: String, scheme: String) throws -> any EvaluationResult {
     if scheme == "B" { return try PlainTextCandidateResult(output: raw, source: source) }
@@ -27,6 +28,7 @@ private struct LiveCase: Decodable {
     var counts: [String: Int]? = nil
     var rewrite: Bool? = nil
     var minSuggestions: Int? = nil
+    var unclear: Bool? = nil
 
     func failures(for result: any EvaluationResult) -> [String] {
         var failures: [String] = []
@@ -36,6 +38,7 @@ private struct LiveCase: Decodable {
         if let containsAny, !containsAny.contains(where: { text.contains($0.lowercased()) }) { failures.append("no accepted alternative") }
         for word in forbids ?? [] where text.contains(word.lowercased()) { failures.append("forbidden fragment: " + word) }
         for (word, count) in counts ?? [:] where text.components(separatedBy: word.lowercased()).count - 1 != count { failures.append("wrong occurrence count: " + word) }
+        if result.unclear != (unclear ?? false) { failures.append("wrong unclear classification") }
         if let rewrite, result.isRewrite != rewrite { failures.append("wrong routing") }
         if let minSuggestions, result.suggestions.count < minSuggestions { failures.append("too few suggestions") }
         return failures
@@ -45,12 +48,13 @@ private struct LiveCase: Decodable {
 final class LiveRequestTests: XCTestCase {
     @MainActor private func run(_ cases: [LiveCase]) async throws {
         let settings = SettingsStore(defaults: UserDefaults(suiteName: "org.bmdy6.StylePolish")!)
-        var config = PolishConfiguration(base: settings.base, model: settings.model, key: settings.credentials.current.key, profile: settings.profile, serviceTier: settings.serviceTier)
+        guard settings.credentials.current.source.hasPrefix("ai-vault · ") else { throw PolishFailure(message: "Live acceptance requires ai-vault") }
+        var config = PolishConfiguration(base: settings.base, model: settings.model, key: settings.credentials.current.key, profile: settings.profile, serviceTier: settings.serviceTier, level: settings.level)
         let env = ProcessInfo.processInfo.environment
         let scheme = env["STYLEPOLISH_SCHEME"] ?? "A"
         guard ["A", "B"].contains(scheme) else { throw PolishFailure(message: "Invalid evaluation scheme") }
         var client = PolishClient()
-        if scheme == "B" {
+        if scheme == "B" || env["STYLEPOLISH_PROMPT_DIRECTORY"] != nil {
             guard let path = env["STYLEPOLISH_PROMPT_DIRECTORY"] else { throw XCTSkip("B requires frozen external prompts") }
             let directory = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
             let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath()
@@ -70,9 +74,10 @@ final class LiveRequestTests: XCTestCase {
                 var record: [String: Any] = ["id": sample.id, "scheme": scheme, "repetition": repetition, "input": sample.input, "model": config.model, "serviceTier": config.serviceTier, "reasoningEffort": config.reasoningEffort ?? "default"]
                 do {
                     let raw = try await client.polish(sample.input, config: config, structured: scheme == "A", metrics: { timing = $0 }) { _ in }
+                    record["raw"] = raw
                     let result = try evaluate(raw, source: sample.input, scheme: scheme)
                     let failures = sample.failures(for: result)
-                    record.merge(["raw": raw, "output": result.text, "rewrite": result.isRewrite, "suggestions": result.suggestions.map { ["original": $0.original, "replacement": $0.replacement] }, "failures": failures, "passed": failures.isEmpty, "firstTokenMS": timing.firstTokenMS ?? -1]) { _, new in new }
+                    record.merge(["raw": raw, "unclear": result.unclear, "output": result.text, "rewrite": result.isRewrite, "suggestions": result.suggestions.map { ["original": $0.original, "replacement": $0.replacement] }, "failures": failures, "passed": failures.isEmpty, "firstTokenMS": timing.firstTokenMS ?? -1]) { _, new in new }
                 } catch {
                     if let failure = error as? PolishFailure {
                         record["httpStatus"] = failure.httpStatus
@@ -109,6 +114,7 @@ final class LiveRequestTests: XCTestCase {
             guard let raw = record["raw"] as? String, let input = record["input"] as? String else { continue }
             let result = try evaluate(raw, source: input, scheme: record["scheme"] as? String ?? "A")
             XCTAssertEqual(result.text, record["output"] as? String)
+            XCTAssertEqual(result.unclear, record["unclear"] as? Bool ?? false)
             XCTAssertEqual(result.isRewrite, record["rewrite"] as? Bool)
             XCTAssertEqual(result.suggestions.map { ["original": $0.original, "replacement": $0.replacement] }, record["suggestions"] as? [[String: String]])
             replayed += 1

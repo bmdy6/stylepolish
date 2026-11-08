@@ -3,12 +3,16 @@ import SwiftUI
 
 // Separate from suggestion underlines so watching, unreadable and zero-edit states remain visible.
 enum InputIndicatorState: Equatable {
-    case watching, checking, clean, suggestions(Int), warning(String), modelFailure(String)
+    case watching, checking, clean, unclear, suggestions(Int), warning(String), modelFailure(String)
+    static func completed(count: Int, unclear: Bool) -> Self {
+        count > 0 ? .suggestions(count) : (unclear ? .unclear : .clean)
+    }
     var help: String {
         switch self {
         case .watching: return "已启用，正在看"
         case .checking: return "正在检查"
         case .clean: return "没问题"
+        case .unclear: return "这句读不通，检查一下？"
         case .suggestions(let n): return "有 \(n) 条建议，点击打开列表"
         case .warning(let reason): return reason
         case .modelFailure(let reason): return "模型请求失败：" + reason
@@ -34,6 +38,7 @@ struct IndicatorView: View {
                 switch state {
                 case .checking: IndicatorSpinner()
                 case .clean: Text("✓").foregroundColor(.white)
+                case .unclear: Text("?").foregroundColor(.black)
                 case .suggestions(let n): Text(String(n)).foregroundColor(.white)
                 case .modelFailure: Text("⚠").foregroundColor(.white)
                 case .warning: Text("⚠").foregroundColor(.black)
@@ -48,13 +53,14 @@ struct IndicatorView: View {
         case .checking: return Color(nsColor: .windowBackgroundColor)
         case .clean: return .green
         case .suggestions: return .red
-        case .warning: return .yellow
+        case .warning, .unclear: return .yellow
         case .modelFailure: return .red
         }
     }
 }
 @MainActor final class InputIndicator {
     private let panel = InlinePanel(frame: .zero)
+    var frame: CGRect { panel.frame }
     private(set) var state: InputIndicatorState?
     private var fade: Task<Void, Never>?
     var click: (() -> Void)?

@@ -147,7 +147,7 @@ import StylePolishCore
         let status = enabled ? automatic.status : .disabled
         statusItem.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: "StylePolish · " + status.title)
         if case .failure = status { statusItem.button?.title = " 失败" } else { statusItem.button?.title = " " + status.title }
-        statusItem.button?.toolTip = "StylePolish · " + status.title
+        statusItem.button?.toolTip = status.help
     }
     func menuNeedsUpdate(_ menu: NSMenu) {
         automatic.sample()
@@ -174,7 +174,7 @@ import StylePolishCore
         menu.addItem(.separator())
         let toggle = NSMenuItem(title: enabled ? "✓ 自动检查 · ⌥ Enter 全部采纳" : "已暂停", action: #selector(toggleEnabled), keyEquivalent: "")
         toggle.target = self; menu.addItem(toggle); menu.addItem(.separator())
-        for (title, selector) in [("设置…", #selector(showSettings)), ("打开记录文件夹", #selector(openHistory)), ("打开诊断日志", #selector(openDiagnostics)), ("探测当前输入框 · ⌃⌥P", #selector(probeInput)), ("退出", #selector(quit))] {
+        for (title, selector) in [("设置…", #selector(showSettings)), ("打开记录文件夹", #selector(openHistory)), ("在访达中显示诊断日志", #selector(openDiagnostics)), ("探测当前输入框 · ⌃⌥P", #selector(probeInput)), ("退出", #selector(quit))] {
             let item = NSMenuItem(title: title, action: selector, keyEquivalent: ""); item.target = self; menu.addItem(item)
         }
         return menu
@@ -200,8 +200,8 @@ import StylePolishCore
         catch { Diagnostics.shared.record(DiagnosticEvent(event: "probe_failed", bundleID: automatic.frontApp?.bundleIdentifier ?? "", error: "focus_unavailable")) }
     }
     @objc func openDiagnostics() {
-        do { try Diagnostics.shared.prepare(); NSWorkspace.shared.open(Diagnostics.shared.url) }
-        catch { showError("无法打开诊断日志") }
+        do { try Diagnostics.shared.prepare(); NSWorkspace.shared.activateFileViewerSelecting([Diagnostics.shared.url]) }
+        catch { showError("无法显示诊断日志") }
     }
     @objc func openHistory() {
         do { try history.prepare(); NSWorkspace.shared.open(history.directory) } catch { showError("无法打开记录文件夹") }

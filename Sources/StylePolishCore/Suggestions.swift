@@ -161,13 +161,18 @@ public struct Sentence {
         return result
     }
 }
+public struct SentenceCheckResult {
+    public let edits: [Suggestion]
+    public let unclear: Bool
+}
 public struct SentenceCache {
-    private var storage: [String: [Suggestion]] = [:]
+    private var storage: [String: SentenceCheckResult] = [:]
     public init() {}
     private func key(_ text: String) -> String { SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined() }
-    public func edits(for text: String) -> [Suggestion]? { storage[key(text)] }
-    public mutating func store(_ edits: [Suggestion], for text: String) {
-        if storage.count >= 500 { storage.removeAll() }; storage[key(text)] = edits
+    public func result(for text: String) -> SentenceCheckResult? { storage[key(text)] }
+    public func edits(for text: String) -> [Suggestion]? { result(for: text)?.edits }
+    public mutating func store(_ edits: [Suggestion], for text: String, unclear: Bool = false) {
+        if storage.count >= 500 { storage.removeAll() }; storage[key(text)] = SentenceCheckResult(edits: edits, unclear: unclear)
     }
     /// Marks every sentence of already-polished text as final so it is never sent again.
     public mutating func settle(_ text: String) {
