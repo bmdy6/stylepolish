@@ -55,7 +55,7 @@ esac
             self.assertEqual(result.returncode, 0, result.stderr)
             app = root / 'dist/StylePolish.app/Contents'
             info = plistlib.loads((app / 'Info.plist').read_bytes())
-            self.assertEqual(info['CFBundleShortVersionString'], '0.3.0')
+            self.assertEqual(info['CFBundleShortVersionString'], '0.3.1')
             self.assertTrue((app / 'Resources/prompts/polish.md').exists())
             signed = (root / 'codesign.log').read_text()
             self.assertIn('--verify --strict', signed)
