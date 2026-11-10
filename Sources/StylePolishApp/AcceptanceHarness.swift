@@ -74,7 +74,8 @@ import StylePolishCore
                 try check(automatic.session.suggestions.count == 1, "one-second debounce and local JSON/SSE produce one suggestion")
                 let item = automatic.session.suggestions[0]
                 try check(access.rangeBounds(item.edit.range, in: capture!.element) != nil, "AX bounds for UTF-16 range available")
-                try check(automatic.accept(item.id), "guarded AX segment replacement succeeds")
+                let accepted = await automatic.accept(item.id)
+                try check(accepted, "guarded AX segment replacement succeeds")
                 try check(textView.string == "这个我看了一下。下一句没有问题。", "only the suggested segment changed")
                 try await Task.sleep(nanoseconds: 1_600_000_000)
                 try check(automatic.session.suggestions.isEmpty, "clean text has no suggestions")
@@ -87,7 +88,8 @@ import StylePolishCore
                 try check(automatic.session.suggestions.count == 1, "cached original sentence restores suggestion")
                 let stale = automatic.session.suggestions[0]
                 textView.string = "用户现在自己改了这句话。下一句没有问题。"
-                try check(!automatic.accept(stale.id), "stale source refuses AX write")
+                let acceptedStale = await automatic.accept(stale.id)
+                try check(!acceptedStale, "stale source refuses AX write")
                 try check(textView.string.hasPrefix("用户现在自己改了"), "stale write leaves editor untouched")
                 try await Task.sleep(nanoseconds: 1_500_000_000)
                 let historyText = (try? String(contentsOf: history.file, encoding: .utf8)) ?? ""

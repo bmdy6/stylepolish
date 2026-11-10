@@ -66,7 +66,6 @@ import StylePolishCore
                 settings.apps = [fixture.bundleIdentifier ?? ""]
                 let automatic = AutomaticPolish(access: access, settings: settings, history: history)
                 let keyboard = KeyboardController()
-                keyboard.acceptAll = { automatic.acceptAll() }
                 keyboard.handle = { code, flags in automatic.key(code, flags) }
                 keyboard.start()
                 defer { withExtendedLifetime(keyboard) {} }

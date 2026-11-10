@@ -1,9 +1,10 @@
-# StylePolish 0.3.0
-停笔后检查错字、用词，局部建议可采纳，整段预览可用 ⌥Enter 替换；不自动发送。
-macOS 13+，本包仅适用于 Apple Silicon（arm64），源码提交 `1478cff`。
-解压拖进「应用程序」，第一次右键 → 打开；没有 Apple 公证，需授权辅助功能。
-配置自己的 OpenAI 兼容接口、Key 和模型；历史只保存在本机。
-长段理顺仍不稳定，白名单 App 仅有限测试，没有自动更新。
-项目：https://github.com/bmdy6/stylepolish
-下载：https://github.com/bmdy6/stylepolish/releases/latest
-SHA-256：`a201452765acfd4b46b5154eb3a913ffdbfef6730c385b77ba5fd30a30f01249`
+# StylePolish 0.3.2
+- 整段润色不再给英文两边加空格、不把小写英文改成大写
+- 建议列表可以滚动，不会一滚就关
+- Esc 关掉预览后，重新打开列表仍可「全部采纳」
+- ⌥Enter 只在当前输入框有建议时生效，不再全局占用
+- 逐条采纳在不接受直接写入的输入框里改走粘贴
+- 只有确认写回成功才记为采纳；没确认时保留建议并提示
+
+安装：解压后拖进「应用程序」，第一次右键 → 打开（没有 Apple 公证）。仅 Apple Silicon，macOS 13+。
+写回相关改动只经过单元测试，尚未在各聊天 App 逐一实测。

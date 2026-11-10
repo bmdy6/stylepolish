@@ -34,7 +34,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>StylePolish</string>
 <key>CFBundleExecutable</key><string>StylePolish</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.3.1</string>
+<key>CFBundleShortVersionString</key><string>0.3.2</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>StylePolishCommit</key><string>source</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>

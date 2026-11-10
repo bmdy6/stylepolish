@@ -32,7 +32,7 @@ import StylePolishCore
     private var generation = UUID()
     private var unclear = false
     private var previewReady = false
-    private var previewDismissed = false
+    private(set) var previewDismissed = false
     private var configuration = ""
     private var subscription: AnyCancellable?
     private var hidden = Set<String>()
@@ -56,10 +56,15 @@ import StylePolishCore
             else { self.overlay.showList(from: self.indicator.frame) }
         }
         observer.changed = { [weak self] in self?.sample() }
-        overlay.accept = { [weak self] in self?.accept($0) }
+        overlay.accept = { [weak self] id in Task { await self?.accept(id) } }
         overlay.ignore = { [weak self] in self?.ignore($0) }
         overlay.disable = { [weak self] in self?.disable($0) }
-        overlay.acceptAll = { [weak self] in self?.acceptAll() }
+        overlay.listOpened = { [weak self] in
+            guard let self, self.previewDismissed else { return }
+            self.previewDismissed = false
+            self.previewReady = false
+        }
+        overlay.acceptAll = { [weak self] in Task { await self?.acceptAll() } }
     }
     func start() {
         let config = configurationProvider?() ?? PolishConfiguration(base: settings.base, model: settings.model, key: settings.credentials.current.key, profile: settings.profile, serviceTier: settings.serviceTier, level: settings.level)
@@ -73,7 +78,7 @@ import StylePolishCore
         if hideIndicator { readGate.reset(); unreadableElement = nil; unreadablePID = nil }
         trace?("suspend")
         unclear = false; previewReady = false; previewDismissed = false
-        generation = UUID(); request?.cancel(); request = nil; debounce.cancel(); overlay.hide(); if hideIndicator { indicator.hide() }
+        generation = UUID(); writing = false; request?.cancel(); request = nil; debounce.cancel(); overlay.hide(); if hideIndicator { indicator.hide() }
         capture = nil; session.replaceSuggestions(); observer.watch(nil)
     }
     func waitForConnectionWarmup() async { await warmup?.value }
@@ -241,74 +246,76 @@ import StylePolishCore
     /// Invalidates the old preview before a key reaches the target editor. No typing
     /// event is consumed; subsequent AX changes schedule a fresh check.
     func key(_ code: CGKeyCode, _ flags: CGEventFlags) -> Bool {
+        // The event tap passes the shortcut through unless it can act on this exact field.
+        if [36, 76].contains(code), flags.intersection([.maskAlternate, .maskCommand, .maskControl, .maskShift]) == .maskAlternate {
+            guard canAcceptAll else { return false }
+            Task { await self.acceptAll() }; return true
+        }
         guard overlay.previewVisible else { return false }
         if code == 53 { dismissPreview(); return true }
-        if [36, 76].contains(code), flags.intersection([.maskAlternate, .maskCommand, .maskControl, .maskShift]) == .maskAlternate {
-            acceptAll(); return true
-        }
         previewReady = false; overlay.hidePreview()
         return false
     }
     func dismissPreview() {
         previewDismissed = true; overlay.hidePreview()
     }
-    func acceptAll() {
-        guard enabled, !writing, let capture, let snapshot = SuggestionPreview(source: session.text, edits: session.suggestions.map(\.edit)),
-              !previewDismissed, access.isCurrent(capture, text: snapshot.source) else { return }
-        writing = true
-        generation = UUID(); request?.cancel(); debounce.cancel()
-        let edit = Suggestion(range: NSRange(location: 0, length: snapshot.source.utf16.count), original: snapshot.source, replacement: snapshot.output, kind: .fluency, why: "全部采纳")
-        let accepted = session.suggestions
-        previewReady = false; overlay.hide()
-        if access.writeSuggestion(edit, source: snapshot.source, to: capture) {
-            finishAcceptAll(snapshot, accepted: accepted, capture: capture, path: "ax")
-            return
-        }
-        // Browser fields often reject AX selection writes or read back late; paste into the same field instead.
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            var path = "clipboard"
-            do {
-                // Some editors apply the AX write but expose the new value a moment later.
-                for _ in 0..<3 where !self.access.isCurrent(capture, text: snapshot.output) { try await Task.sleep(nanoseconds: 50_000_000) }
-                if self.access.isCurrent(capture, text: snapshot.output) { self.finishAcceptAll(snapshot, accepted: accepted, capture: capture, path: "ax_late"); return }
-                try await ClipboardTransaction.paste(snapshot.output, selectAll: true, validate: { [access] in access.isCurrent(capture, text: snapshot.source) })
-                for _ in 0..<10 where !self.access.isCurrent(capture, text: snapshot.output) { try await Task.sleep(nanoseconds: 50_000_000) }
-                if !self.access.isCurrent(capture, text: snapshot.output) { path = "clipboard_unverified" }
-            } catch { path = self.access.isCurrent(capture, text: snapshot.output) ? "clipboard" : "failed" }
-            self.finishAcceptAll(snapshot, accepted: path == "failed" ? [] : accepted, capture: capture, path: path)
-        }
+    var canAcceptAll: Bool {
+        guard enabled, !writing, !previewDismissed, let capture,
+              settings.apps.contains(capture.bundleID),
+              SuggestionPreview(source: session.text, edits: session.suggestions.map(\.edit)) != nil else { return false }
+        return access.isCurrent(capture, text: session.text)
     }
-    private func finishAcceptAll(_ snapshot: SuggestionPreview, accepted: [LocatedSuggestion], capture: CapturedInput, path: String) {
-        Diagnostics.shared.record(DiagnosticEvent(event: "accept_all", bundleID: capture.bundleID, textLength: snapshot.output.utf16.count, axAttribute: path, error: ["ax", "ax_late", "clipboard"].contains(path) ? nil : path))
-        if !accepted.isEmpty {
-            for item in accepted { record(item, action: .accept) }
-            // Accepted text is final: never send it back to the model.
+    @discardableResult func acceptAll() async -> Bool {
+        guard canAcceptAll else { return false }
+        return await apply(session.suggestions, all: true)
+    }
+    @discardableResult func accept(_ id: UUID, reschedule: Bool = true) async -> Bool {
+        guard let item = session.suggestions.first(where: { $0.id == id }), isVisible(item.edit) else { return false }
+        return await apply([item], all: false, reschedule: reschedule)
+    }
+    private func apply(_ accepted: [LocatedSuggestion], all: Bool, reschedule: Bool = true) async -> Bool {
+        guard enabled, !writing, let capture, settings.apps.contains(capture.bundleID),
+              let snapshot = SuggestionPreview(source: session.text, edits: accepted.map(\.edit)),
+              access.isCurrent(capture, text: snapshot.source) else { return false }
+        writing = true
+        generation = UUID(); let operation = generation
+        request?.cancel(); debounce.cancel()
+        previewReady = false; overlay.hide()
+        let edit = all ? Suggestion(range: NSRange(location: 0, length: snapshot.source.utf16.count), original: snapshot.source, replacement: snapshot.output, kind: .fluency, why: "全部采纳") : accepted[0].edit
+        let writer = SuggestionWriter(
+            isCurrent: { [access] in access.isCurrent(capture, text: $0) },
+            writeAX: { [access] in access.writeSuggestion(edit, source: snapshot.source, to: capture) },
+            paste: { output, valid in try await ClipboardTransaction.paste(output, selectAll: true, validate: valid) }
+        )
+        let result = await writer.write(source: snapshot.source, output: snapshot.output, valid: { [self] in
+            enabled && generation == operation && settings.apps.contains(capture.bundleID) && accepted.allSatisfy { isVisible($0.edit) }
+        })
+        // A pause or newer session owns the state now; never commit the old operation into it.
+        guard generation == operation else { return false }
+        writing = false
+        Diagnostics.shared.record(DiagnosticEvent(event: all ? "accept_all" : "accept_one", bundleID: capture.bundleID, textLength: snapshot.output.utf16.count, axAttribute: result.rawValue, error: result.confirmed ? nil : result.rawValue))
+        guard result.confirmed else {
+            if access.isCurrent(capture, text: snapshot.source) {
+                let message = result == .unverified ? "未确认写回，请检查输入框后重试" : "未能写回，请检查输入框后重试"
+                status = .failure(message); indicatorState = .warning(message); failed?(true)
+                render()
+            } else { sample(force: true) }
+            return false
+        }
+        for item in accepted { record(item, action: .accept) }
+        if all {
             if unclear { cache.store([], for: snapshot.output, unclear: true) }
             else { cache.settle(snapshot.output) }
             session.replaceSuggestions(); session.reconcile(snapshot.output)
+        } else {
+            session.remove(accepted[0].id)
+            session.didAccept(edit, updated: snapshot.output)
+            if session.suggestions.isEmpty { cache.store([], for: snapshot.output, unclear: unclear) }
         }
-        previewReady = false; overlay.hide(); writing = false
-        sample(force: true)
-    }
-    @discardableResult func accept(_ id: UUID, reschedule: Bool = true) -> Bool {
-        guard enabled, let capture, let item = session.suggestions.first(where: { $0.id == id }), isVisible(item.edit) else { return false }
-        writing = true; defer { writing = false }
-        generation = UUID(); request?.cancel(); debounce.cancel()
-        guard access.writeSuggestion(item.edit, source: session.text, to: capture) else {
-            overlay.hide(); indicator.hide()
-            Task { @MainActor [weak self] in self?.sample(force: true) }; return false
-        }
-        record(item, action: .accept); session.remove(id)
-        let updated = (session.text as NSString).replacingCharacters(in: item.edit.range, with: item.edit.replacement)
-        // Known programmatic edits shift later ranges without expiring independent suggestions.
-        session.didAccept(item.edit, updated: updated)
-        // Accepting an independent correction does not resolve an unclear fragment.
-        if session.suggestions.isEmpty { cache.store([], for: updated, unclear: unclear) }
         status = .completed(count: session.suggestions.count, unclear: unclear)
         indicatorState = .completed(count: session.suggestions.count, unclear: unclear)
-        render()
-        if reschedule { Task { @MainActor [weak self] in self?.sample(force: true) } }
+        failed?(false); render()
+        if reschedule { sample(force: true) }
         return true
     }
     private func ignore(_ id: UUID) {

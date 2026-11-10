@@ -24,6 +24,40 @@ final class SuggestionListTests: XCTestCase {
         return LocatedSuggestion(edit: edit, sentence: source)
     }
 
+    @MainActor func testScrollInsideListPreservesItAndOutsideInvalidatesIt() throws {
+        let overlay = try makeOverlay()
+        defer { overlay.hide() }
+        let field = CGRect(x: 300, y: 300, width: 500, height: 180)
+        overlay.show(items: [suggestion()], field: field, marks: nil)
+        overlay.showList(from: field)
+        let frame = overlay.popupFrame
+        XCTAssertFalse(overlay.hideForScroll(at: CGPoint(x: frame.midX, y: frame.midY)))
+        XCTAssertTrue(overlay.popupVisible)
+        XCTAssertTrue(overlay.hideForScroll(at: CGPoint(x: -10_000, y: -10_000)))
+        XCTAssertFalse(overlay.popupVisible)
+    }
+
+    @MainActor func testEscThenExplicitReopenClearsAcceptanceDismissal() throws {
+        _ = try makeOverlay()
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = "StylePolish-test-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let automatic = AutomaticPolish(access: AccessibilityAccess(), settings: SettingsStore(defaults: defaults, credentialHome: home), history: HistoryStore(directory: home))
+        defer { automatic.stop() }
+        let item = suggestion(whole: true)
+        let field = CGRect(x: 300, y: 300, width: 500, height: 180)
+        automatic.overlay.show(items: [], field: field, marks: [], listItems: [item])
+        automatic.overlay.showPreview(SuggestionPreview(source: item.sentence, edits: [item.edit]), field: field)
+        XCTAssertTrue(automatic.key(53, []))
+        XCTAssertTrue(automatic.previewDismissed)
+        XCTAssertFalse(automatic.overlay.previewVisible)
+        automatic.indicator.click?()
+        XCTAssertTrue(automatic.overlay.popupVisible)
+        XCTAssertFalse(automatic.previewDismissed)
+        XCTAssertFalse(automatic.overlay.previewVisible, "Reopening the list should not also reopen the preview bar")
+    }
+
     @MainActor func testIndicatorListSurvivesPointerTravelAndUnchangedRender() throws {
         let overlay = try makeOverlay()
         defer { overlay.hide() }

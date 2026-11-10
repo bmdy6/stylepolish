@@ -9,6 +9,13 @@ struct WholePolishResult {
     let isRewrite: Bool
     let unclear: Bool
 
+    /// Models pad English with spaces ("一些 token"). Text typed without those gaps keeps its own spacing.
+    static func keepTypedSpacing(_ output: String, source: String) -> String {
+        let gap = "(?<=[\\p{Han}，。？！、：；])[ \\u00A0]+(?=[A-Za-z0-9])|(?<=[A-Za-z0-9])[ \\u00A0]+(?=\\p{Han})"
+        guard source.range(of: gap, options: .regularExpression) == nil else { return output }
+        return output.replacingOccurrences(of: gap, with: "", options: .regularExpression)
+    }
+
     init(raw: String, source: String) throws {
         guard let object = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
               var output = object["text"] as? String, object["edits"] is [Any],
@@ -18,6 +25,7 @@ struct WholePolishResult {
         }
         unclear = object["unclear"] as? Bool ?? false
         if !source.hasSuffix("。"), output.hasSuffix("。") { output.removeLast() }
+        output = Self.keepTypedSpacing(output, source: source)
         if PolishTextComparison.key(source) == PolishTextComparison.key(output) {
             text = source; suggestions = []; isRewrite = false
             return

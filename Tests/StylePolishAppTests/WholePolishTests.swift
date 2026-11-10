@@ -6,6 +6,17 @@ final class WholePolishTests: XCTestCase {
     private func response(_ output: String, edits: [[String: String]] = []) throws -> String {
         String(decoding: try JSONSerialization.data(withJSONObject: ["text": output, "edits": edits]), as: UTF8.self)
     }
+    func testRewriteKeepsTypedSpacingAroundEnglish() throws {
+        let source = "之需要花一些token，但是token，如果充值pro，有免费的api"
+        let result = try WholePolishResult(raw: response("只需要花一些 token，但是如果充值 pro，就有免费的 api"), source: source)
+        XCTAssertTrue(result.isRewrite)
+        XCTAssertEqual(result.text, "只需要花一些token，但是如果充值pro，就有免费的api")
+    }
+    func testRewriteLeavesSpacingWhenSourceAlreadySpacesEnglish() throws {
+        let source = "那个就是 X 上的Grok它分析的时间要50秒钟"
+        let result = try WholePolishResult(raw: response("X 上的 Grok 分析需要50秒钟"), source: source)
+        XCTAssertEqual(result.text, "X 上的 Grok 分析需要50秒钟")
+    }
     func testCaseAndPunctuationAloneNeverSuggestOrRewrite() throws {
         let source = "用ruby读yaml，稍后见🙂"
         let result = try WholePolishResult(raw: response("用Ruby读YAML。稍后见🙂！", edits: [

@@ -81,11 +81,16 @@ final class InlinePanel: NSPanel {
     var ignore: ((UUID) -> Void)?
     var disable: ((SuggestionKind) -> Void)?
     var acceptAll: (() -> Void)?
+    var listOpened: (() -> Void)?
     init() {
         // Scroll long diffs without activation; the panel still cannot become key/main.
         previewPanel.ignoresMouseEvents = false
         waves.ignoresMouseEvents = true; waves.hasShadow = false; waves.contentView = drawing
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.trackHover(at: NSEvent.mouseLocation) } }
+    }
+    @discardableResult func hideForScroll(at point: CGPoint) -> Bool {
+        if (previewVisible && previewFrame.contains(point)) || (popupVisible && popupFrame.contains(point)) { return false }
+        hide(); return true
     }
     func hide() {
         hidePreview()
@@ -170,6 +175,7 @@ final class InlinePanel: NSPanel {
     }
     func showList(from anchor: CGRect? = nil) {
         guard !listItems.isEmpty else { return }
+        listOpened?()
         openID = nil; drawing.highlighted = nil; drawing.needsDisplay = true
         listAnchor = anchor ?? (badge.isVisible ? badge.frame : field)
         present(SuggestionList(suggestions: listItems, accept: { [weak self] in self?.accept?($0) }, ignore: { [weak self] in self?.ignore?($0) }, acceptAll: { [weak self] in self?.acceptAll?() }), above: field, width: 280)

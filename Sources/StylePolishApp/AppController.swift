@@ -118,11 +118,9 @@ import StylePolishCore
         keyboard.probe = { [weak self] in self?.probeInput() }
         keyboard.trigger = { [weak self] in self?.trigger() }
         keyboard.handle = { [weak self] code, flags in self?.key(code, flags) ?? false }
-        keyboard.acceptAll = { [weak self] in self?.automatic.acceptAll() }
         keyboard.pointer = { [weak self] point in self?.automatic.overlay.click(at: point) ?? false }
         keyboard.scrolled = { [weak self] in
-            guard self?.automatic.overlay.pointerOverPreview != true else { return }
-            self?.automatic.overlay.hide()
+            guard self?.automatic.overlay.hideForScroll(at: NSEvent.mouseLocation) == true else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in self?.automatic.sample() }
         }
         automatic.statusChanged = { [weak self] in
