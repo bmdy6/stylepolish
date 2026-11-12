@@ -4,6 +4,10 @@ A macOS writing assistant that polishes text while keeping your voice; you stay 
 
 在 macOS 任意输入框里，停笔后帮你润色，保留你的口吻，发送仍由你自己按。
 
+**▶ 30 秒宣传片**（点图片播放）：
+
+<a href="docs/media/promo.mp4"><img src="docs/images/promo-poster.jpg" width="640" alt="宣传片画面：输入框下方显示整句预览，按 Option + Enter 一次采纳" /></a>
+
 <img src="docs/images/suggestions.png" width="280" alt="合成效果图：错字和赘词建议，可逐条采纳或忽略" />
 
 *合成界面示意。输入框兼容性见下方限制。*
@@ -52,6 +56,12 @@ Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、�
 - 只在微信等白名单 App 做过有限测试，完整采纳写回闭环未覆盖所有 App；任意输入框兼容性没有保证。
 - 没有自动更新，升级需要重新下载；切换签名后可能需要重新授权辅助功能。
 - 没有 Apple 公证；本机构建的 zip 仅包含构建机器的架构。
+
+## 宣传片素材
+
+- 背景音乐：[Upbeat Corporate](https://www.jamendo.com/track/1670486) — Soundrider/Dope，CC BY
+- 配音：Microsoft Edge 在线音色 Xiaoyi（经 [edge-tts](https://github.com/rany2/edge-tts)）
+- 画面：自制动画，聊天窗口为通用示意
 
 ## 许可证
 
