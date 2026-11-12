@@ -1,0 +1,27 @@
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>StylePolish</title>
+        <item>
+            <title>0.7.0</title>
+            <pubDate>Thu, 12 Nov 2026 20:34:59 +0800</pubDate>
+            <link>https://github.com/bmdy6/stylepolish/releases/tag/v0.7.0</link>
+            <sparkle:version>38</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# StylePolish 0.7.0
+
+- 菜单栏新增「检查更新…」。发现新版后可查看版本和更新说明，确认安装后，StylePolish 会验证安装包、替换「应用程序」里的旧版并重启。
+- 从 0.6.0 或更早版本升级时，先下载本次 ZIP，解压后把 StylePolish 移到「应用程序」并选择「替换」。
+- 适用于搭载 Apple 芯片的 Mac，系统要求 macOS 13 或更新版本。
+
+]]></description>
+            <enclosure url="https://github.com/bmdy6/stylepolish/releases/download/v0.7.0/StylePolish-0.7.0-macOS-arm64.zip" length="2281835" type="application/octet-stream" sparkle:edSignature="MpPZWGxSojc2D1l4vlBoGIn0En9mCM6ng2cOvrBBEgpaIRmIcc6qYFVAFpLAEcME9ZpbzLiw/5mIZvX4ruJRBA=="></enclosure>
+        </item>
+    </channel>
+</rss><!-- sparkle-signatures:
+edSignature: awiYcZPXr8mZYoMcMYUKZyiDRWU1EOQm48HuMcjH7Qmj8AFrM7mjWuzfmO6P8s0c6pFWqCbMPImH4P4oyBkSAA==
+length: 1726
+-->
