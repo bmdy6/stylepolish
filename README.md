@@ -16,6 +16,10 @@ A macOS writing assistant for WeChat only (`com.tencent.xinWeChat`). It polishes
 
 小改（错字、用错的词）在原文下画线，点开采纳；需要理顺时，底部预览改好的整段，⌥Enter 替换。继续输入会作废旧建议，Esc 忽略。不自动发送。
 
+「我的习惯」按采纳和忽略记录调整提醒：同一错字采纳 2 次且未忽略后，多字错写在本地直接标出，单字交给模型结合语境判断。同一建议忽略 2 次且未采纳后不再提示，可在设置里恢复，也可整体关闭习惯功能；习惯和报告只读本机记录，不调用模型学习。菜单「本周表达报告」可看最近七天的采纳率、已采纳错字纠正与前七天的对比、最常见的三个错字和下周留意。
+
+“My Habits” adjusts suggestions from your accept/ignore history: after the same typo is accepted twice with no ignores, multi-character mistakes are flagged locally, while single-character mistakes go to the model for context. Suggestions ignored twice with no accepts stop appearing; restore them in settings or turn habits off entirely, with habits and reports built only from local records and no model calls for learning. The menu’s “Weekly Expression Report” shows the last seven days’ acceptance rate, accepted typo corrections compared with the previous seven days, the three most frequent mistakes and a tip for next week.
+
 ## 安装
 
 需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/style-polish-app/releases/latest) 下载适合本机架构的 zip，解压后**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。
