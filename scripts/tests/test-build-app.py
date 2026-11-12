@@ -22,6 +22,11 @@ class BuildAppTests(unittest.TestCase):
             resources = root / 'Sources/StylePolishApp/Resources'
             (resources / 'prompts').mkdir(parents=True)
             (resources / 'prompts/polish.md').write_text('synthetic prompt')
+            (resources / 'prompts/habits.md').write_text('synthetic habits')
+            rules = root / 'Sources/StylePolishCore/Resources'
+            rules.mkdir(parents=True)
+            (rules / 'local-typos.json').write_text('{"因该":"应该"}')
+            (rules / 'habit-tips.json').write_text('{"在/再":"synthetic tip"}')
             if icon:
                 (resources / 'AppIcon.icns').write_bytes(b'synthetic icon')
             home = root / 'home'
@@ -55,8 +60,11 @@ esac
             self.assertEqual(result.returncode, 0, result.stderr)
             app = root / 'dist/StylePolish.app/Contents'
             info = plistlib.loads((app / 'Info.plist').read_bytes())
-            self.assertEqual(info['CFBundleShortVersionString'], '0.3.2')
+            self.assertEqual(info['CFBundleShortVersionString'], '0.5.0')
             self.assertTrue((app / 'Resources/prompts/polish.md').exists())
+            self.assertTrue((app / 'Resources/local-typos.json').exists())
+            self.assertEqual((app / 'Resources/habit-tips.json').read_text(), '{"在/再":"synthetic tip"}')
+            self.assertEqual((app / 'Resources/prompts/habits.md').read_text(), 'synthetic habits')
             signed = (root / 'codesign.log').read_text()
             self.assertIn('--verify --strict', signed)
             if identity:

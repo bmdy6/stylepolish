@@ -1,0 +1,502 @@
+[
+  {
+    "wrong": "按扭",
+    "right": "按钮",
+    "counterexample": "说明：按钮。"
+  },
+  {
+    "wrong": "按健",
+    "right": "按键",
+    "counterexample": "说明：按键。"
+  },
+  {
+    "wrong": "分辩率",
+    "right": "分辨率",
+    "counterexample": "说明：分辨率。"
+  },
+  {
+    "wrong": "登陆账号",
+    "right": "登录账号",
+    "counterexample": "说明：登录账号。"
+  },
+  {
+    "wrong": "登陆系统",
+    "right": "登录系统",
+    "counterexample": "说明：登录系统。"
+  },
+  {
+    "wrong": "登陆页面",
+    "right": "登录页面",
+    "counterexample": "说明：登录页面。"
+  },
+  {
+    "wrong": "登陆失败",
+    "right": "登录失败",
+    "counterexample": "说明：登录失败。"
+  },
+  {
+    "wrong": "登陆密码",
+    "right": "登录密码",
+    "counterexample": "说明：登录密码。"
+  },
+  {
+    "wrong": "登陆验证",
+    "right": "登录验证",
+    "counterexample": "说明：登录验证。"
+  },
+  {
+    "wrong": "布署服务",
+    "right": "部署服务",
+    "counterexample": "说明：部署服务。"
+  },
+  {
+    "wrong": "布署环境",
+    "right": "部署环境",
+    "counterexample": "说明：部署环境。"
+  },
+  {
+    "wrong": "回朔日志",
+    "right": "回溯日志",
+    "counterexample": "回溯日志中的异常。"
+  },
+  {
+    "wrong": "复盖",
+    "right": "覆盖",
+    "counterexample": "说明：覆盖。"
+  },
+  {
+    "wrong": "数剧库",
+    "right": "数据库",
+    "counterexample": "说明：数据库。"
+  },
+  {
+    "wrong": "配制文件",
+    "right": "配置文件",
+    "counterexample": "说明：配置文件。"
+  },
+  {
+    "wrong": "配置文见",
+    "right": "配置文件",
+    "counterexample": "说明：配置文件。"
+  },
+  {
+    "wrong": "邮件附见",
+    "right": "邮件附件",
+    "counterexample": "说明：邮件附件。"
+  },
+  {
+    "wrong": "操做系统",
+    "right": "操作系统",
+    "counterexample": "说明：操作系统。"
+  },
+  {
+    "wrong": "操作步聚",
+    "right": "操作步骤",
+    "counterexample": "说明：操作步骤。"
+  },
+  {
+    "wrong": "步聚",
+    "right": "步骤",
+    "counterexample": "说明：步骤。"
+  },
+  {
+    "wrong": "流榄器",
+    "right": "浏览器",
+    "counterexample": "说明：浏览器。"
+  },
+  {
+    "wrong": "浏揽器",
+    "right": "浏览器",
+    "counterexample": "说明：浏览器。"
+  },
+  {
+    "wrong": "编译报措",
+    "right": "编译报错",
+    "counterexample": "说明：编译报错。"
+  },
+  {
+    "wrong": "语法报措",
+    "right": "语法报错",
+    "counterexample": "说明：语法报错。"
+  },
+  {
+    "wrong": "单元侧试",
+    "right": "单元测试",
+    "counterexample": "说明：单元测试。"
+  },
+  {
+    "wrong": "回归侧试",
+    "right": "回归测试",
+    "counterexample": "说明：回归测试。"
+  },
+  {
+    "wrong": "测式用例",
+    "right": "测试用例",
+    "counterexample": "说明：测试用例。"
+  },
+  {
+    "wrong": "网各",
+    "right": "网络",
+    "counterexample": "说明：网络。"
+  },
+  {
+    "wrong": "链结地址",
+    "right": "链接地址",
+    "counterexample": "说明：链接地址。"
+  },
+  {
+    "wrong": "链街",
+    "right": "链接",
+    "counterexample": "说明：链接。"
+  },
+  {
+    "wrong": "链按",
+    "right": "链接",
+    "counterexample": "说明：链接。"
+  },
+  {
+    "wrong": "服物器",
+    "right": "服务器",
+    "counterexample": "说明：服务器。"
+  },
+  {
+    "wrong": "客护端",
+    "right": "客户端",
+    "counterexample": "说明：客户端。"
+  },
+  {
+    "wrong": "请球",
+    "right": "请求",
+    "counterexample": "说明：请求。"
+  },
+  {
+    "wrong": "响映",
+    "right": "响应",
+    "counterexample": "说明：响应。"
+  },
+  {
+    "wrong": "验正码",
+    "right": "验证码",
+    "counterexample": "说明：验证码。"
+  },
+  {
+    "wrong": "验征码",
+    "right": "验证码",
+    "counterexample": "说明：验证码。"
+  },
+  {
+    "wrong": "认征",
+    "right": "认证",
+    "counterexample": "说明：认证。"
+  },
+  {
+    "wrong": "解蜜",
+    "right": "解密",
+    "counterexample": "说明：解密。"
+  },
+  {
+    "wrong": "格试",
+    "right": "格式",
+    "counterexample": "说明：格式。"
+  },
+  {
+    "wrong": "反馈意建",
+    "right": "反馈意见",
+    "counterexample": "我同意建立新流程。"
+  },
+  {
+    "wrong": "提出建义",
+    "right": "提出建议",
+    "counterexample": "社区共建义诊服务。"
+  },
+  {
+    "wrong": "业务需球",
+    "right": "业务需求",
+    "counterexample": "打篮球无需球拍。"
+  },
+  {
+    "wrong": "须求文档",
+    "right": "需求文档",
+    "counterexample": "对此必须求证。"
+  },
+  {
+    "wrong": "竟争",
+    "right": "竞争",
+    "counterexample": "说明：竞争。"
+  },
+  {
+    "wrong": "非长好",
+    "right": "非常好",
+    "counterexample": "说明：非常好。"
+  },
+  {
+    "wrong": "非长感谢",
+    "right": "非常感谢",
+    "counterexample": "说明：非常感谢。"
+  },
+  {
+    "wrong": "请确任收件",
+    "right": "请确认收件",
+    "counterexample": "明确任务后再处理。"
+  },
+  {
+    "wrong": "确订时间",
+    "right": "确定时间",
+    "counterexample": "请明确订单数量。"
+  },
+  {
+    "wrong": "己经",
+    "right": "已经",
+    "counterexample": "说明：已经。"
+  },
+  {
+    "wrong": "稍侯片刻",
+    "right": "稍候片刻",
+    "counterexample": "说明：稍候片刻。"
+  },
+  {
+    "wrong": "静侯佳音",
+    "right": "静候佳音",
+    "counterexample": "说明：静候佳音。"
+  },
+  {
+    "wrong": "恭侯光临",
+    "right": "恭候光临",
+    "counterexample": "说明：恭候光临。"
+  },
+  {
+    "wrong": "等侯回复",
+    "right": "等候回复",
+    "counterexample": "说明：等候回复。"
+  },
+  {
+    "wrong": "等侍回复",
+    "right": "等待回复",
+    "counterexample": "说明：等待回复。"
+  },
+  {
+    "wrong": "请稍侯",
+    "right": "请稍候",
+    "counterexample": "说明：请稍候。"
+  },
+  {
+    "wrong": "联系方试",
+    "right": "联系方式",
+    "counterexample": "说明：联系方式。"
+  },
+  {
+    "wrong": "联络方试",
+    "right": "联络方式",
+    "counterexample": "说明：联络方式。"
+  },
+  {
+    "wrong": "邮寄地扯",
+    "right": "邮寄地址",
+    "counterexample": "别漫无目的地扯闲话。"
+  },
+  {
+    "wrong": "扫描文见",
+    "right": "扫描文件",
+    "counterexample": "说明：扫描文件。"
+  },
+  {
+    "wrong": "申请报消",
+    "right": "申请报销",
+    "counterexample": "电报消失了。"
+  },
+  {
+    "wrong": "报稍凭证",
+    "right": "报销凭证",
+    "counterexample": "这次汇报稍晚。"
+  },
+  {
+    "wrong": "会义纪要",
+    "right": "会议纪要",
+    "counterexample": "社会义诊活动很受欢迎。"
+  },
+  {
+    "wrong": "时问安排",
+    "right": "时间安排",
+    "counterexample": "说明：时间安排。"
+  },
+  {
+    "wrong": "项目进渡",
+    "right": "项目进度",
+    "counterexample": "船已经开进渡口。"
+  },
+  {
+    "wrong": "进展顺力",
+    "right": "进展顺利",
+    "counterexample": "说明：进展顺利。"
+  },
+  {
+    "wrong": "顺力完成",
+    "right": "顺利完成",
+    "counterexample": "说明：顺利完成。"
+  },
+  {
+    "wrong": "沟通细结",
+    "right": "沟通细节",
+    "counterexample": "请仔细结算。"
+  },
+  {
+    "wrong": "细截",
+    "right": "细节",
+    "counterexample": "说明：细节。"
+  },
+  {
+    "wrong": "详见附见",
+    "right": "详见附件",
+    "counterexample": "说明：详见附件。"
+  },
+  {
+    "wrong": "下载资科",
+    "right": "下载资料",
+    "counterexample": "请联系物资科。"
+  },
+  {
+    "wrong": "材科",
+    "right": "材料",
+    "counterexample": "说明：材料。"
+  },
+  {
+    "wrong": "下载文见",
+    "right": "下载文件",
+    "counterexample": "正文见附件。"
+  },
+  {
+    "wrong": "版本更薪",
+    "right": "版本更新",
+    "counterexample": "薪酬结构保持稳定。"
+  },
+  {
+    "wrong": "版本迭带",
+    "right": "版本迭代",
+    "counterexample": "说明：版本迭代。"
+  },
+  {
+    "wrong": "迭带",
+    "right": "迭代",
+    "counterexample": "说明：迭代。"
+  },
+  {
+    "wrong": "叠代",
+    "right": "迭代",
+    "counterexample": "说明：迭代。"
+  },
+  {
+    "wrong": "申清",
+    "right": "申请",
+    "counterexample": "说明：申请。"
+  },
+  {
+    "wrong": "审合通过",
+    "right": "审核通过",
+    "counterexample": "请评审合同内容。"
+  },
+  {
+    "wrong": "通遇审核",
+    "right": "通过审核",
+    "counterexample": "交通遇阻，请绕行。"
+  },
+  {
+    "wrong": "交付验牧",
+    "right": "交付验收",
+    "counterexample": "说明：交付验收。"
+  },
+  {
+    "wrong": "审批流呈",
+    "right": "审批流程",
+    "counterexample": "水流呈蓝色。"
+  },
+  {
+    "wrong": "流成图",
+    "right": "流程图",
+    "counterexample": "说明：流程图。"
+  },
+  {
+    "wrong": "优先及",
+    "right": "优先级",
+    "counterexample": "说明：优先级。"
+  },
+  {
+    "wrong": "优先极",
+    "right": "优先级",
+    "counterexample": "说明：优先级。"
+  },
+  {
+    "wrong": "适佩",
+    "right": "适配",
+    "counterexample": "说明：适配。"
+  },
+  {
+    "wrong": "安全风俭",
+    "right": "安全风险",
+    "counterexample": "作风俭朴是优点。"
+  },
+  {
+    "wrong": "宣泄情序",
+    "right": "宣泄情绪",
+    "counterexample": "说明：宣泄情绪。"
+  },
+  {
+    "wrong": "情序",
+    "right": "情绪",
+    "counterexample": "说明：情绪。"
+  },
+  {
+    "wrong": "布暑",
+    "right": "部署",
+    "counterexample": "说明：部署。"
+  },
+  {
+    "wrong": "延申",
+    "right": "延伸",
+    "counterexample": "说明：延伸。"
+  },
+  {
+    "wrong": "阻档",
+    "right": "阻挡",
+    "counterexample": "说明：阻挡。"
+  },
+  {
+    "wrong": "秘蜜",
+    "right": "秘密",
+    "counterexample": "说明：秘密。"
+  },
+  {
+    "wrong": "签暑",
+    "right": "签署",
+    "counterexample": "说明：签署。"
+  },
+  {
+    "wrong": "签属文件",
+    "right": "签署文件",
+    "counterexample": "说明：签署文件。"
+  },
+  {
+    "wrong": "盖章生郊",
+    "right": "盖章生效",
+    "counterexample": "说明：盖章生效。"
+  },
+  {
+    "wrong": "有郊",
+    "right": "有效",
+    "counterexample": "说明：有效。"
+  },
+  {
+    "wrong": "无郊",
+    "right": "无效",
+    "counterexample": "说明：无效。"
+  },
+  {
+    "wrong": "郊率",
+    "right": "效率",
+    "counterexample": "说明：效率。"
+  },
+  {
+    "wrong": "郊果",
+    "right": "效果",
+    "counterexample": "说明：效果。"
+  }
+]

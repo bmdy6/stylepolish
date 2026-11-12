@@ -1,8 +1,8 @@
 # <img src="docs/images/icon-256.png" width="64" alt="StylePolish 图标" /> StylePolish
 
-A macOS writing assistant that polishes text while keeping your voice; you stay in control of sending.
+A macOS writing assistant for WeChat only (`com.tencent.xinWeChat`). It polishes text while keeping your voice; you stay in control of sending. Automatic checks, underlines, suggestions and manual shortcuts work only in WeChat. Other apps are excluded, including when a legacy shortcut or old app list was enabled.
 
-在 macOS 任意输入框里，停笔后帮你润色，保留你的口吻，发送仍由你自己按。
+目前只支持 macOS 微信（`com.tencent.xinWeChat`）：停笔后帮你润色，保留你的口吻，发送仍由你自己按。自动检查、下划线、建议、快捷键和写回都只针对微信；其他软件里不触发，旧版保存的 App 列表会自动重置为只有微信。
 
 **▶ 30 秒宣传片**（点图片播放）：
 
@@ -18,7 +18,7 @@ A macOS writing assistant that polishes text while keeping your voice; you stay 
 
 ## 安装
 
-需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/stylepolish/releases/latest) 下载适合本机架构的 zip，解压后拖进「应用程序」。
+需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/style-polish-app/releases/latest) 下载适合本机架构的 zip，解压后**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。
 没有 Apple 公证，第一次打开要右键 → 打开；信任来源后也可执行：
 
 ```sh
@@ -28,8 +28,8 @@ xattr -dr com.apple.quarantine /Applications/StylePolish.app
 从源码构建需要 Swift 5.9+（Xcode Command Line Tools）：
 
 ```sh
-git clone https://github.com/bmdy6/stylepolish
-cd stylepolish
+git clone https://github.com/bmdy6/style-polish-app
+cd style-polish-app
 swift test
 scripts/build-app.sh
 ```
@@ -39,21 +39,28 @@ scripts/build-app.sh
 
 ## 第一次使用
 
-在设置填 OpenAI 兼容接口地址、Key、模型；在系统设置 → 隐私与安全性 → 辅助功能授权，再启用目标 App。
-Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、目录 `0700`；请保护本机账号。
-高级用法：可选读取 `~/.config/ai-vault/vault.json` 中的 `OPENAI_PLATFORM_API_KEY`，优先于本地 Key 文件。
+第一次打开会走三步引导：授权辅助功能 → 选润色方式 → 在窗口里试一句。授权会每秒自动检测；已有授权会直接进入第二步。菜单「使用说明…」和设置「重新打开引导」都能再打开。
 
+- **本地规则**：没读到 Key 时默认使用，免费、不联网。检查常见错写、白名单里的重复虚词/词、重复标点和个人词表 `aliases`；严格档额外检查中文间的半角逗号。不改写句子，不检查英文，不做通用叠字检测，也不用需要语境的 `contextual_aliases`。引用/代码字面保守跳过。
+- **邀请码**：由作者手动发放，验证后可试用 AI 润色。文字及可选口吻档案、词表会经过作者服务器转发给模型；中转不保存正文。设置里显示剩余百分比，低于 10% 时菜单提醒一次；码无效、额度用完或当月试用已满时改用本地规则，并给出更换邀请码 / 使用自己的 Key 的入口。网络失败、限速、输入过长只回退当次，下次照常重试。
+- **自己的 Key**：已有 Key 的用户保持 AI，可在设置切换。文字会发给你配置的 OpenAI 兼容服务。请求失败时当次自动用本地规则，菜单显示 Key、额度或网络原因；下次停笔仍重试 AI。
+
+试用中转默认地址目前为占位值 `https://relay.invalid`，服务尚未开放；邀请码选项仍可见，验证时提示「试用服务还没开放」。上线后可在高级设置修改中转地址。邀请码单独保存在 `~/.config/stylepolish/invite.json`，首次启动生成的设备 UUID 保存在同目录的 `device-id`，文件权限均为 `0600`，不进入钥匙串，也不放入 UserDefaults。试用请求只发送邀请码和设备 UUID，不发送自己的 API Key。
+
+设置固定显示「目前只支持微信」，不提供增删 App。设置分为「润色方式」「支持的 App」「权限与说明」「高级」。接口地址、模型、速度、vault Key 名称、口吻档案、个人词表和 ⌥Space 备用弹窗都在高级中。Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、目录 `0700`；可选读取 `~/.config/ai-vault/vault.json` 的 `OPENAI_PLATFORM_API_KEY`，优先于本地文件，不访问登录钥匙串。
+
+升级后如果菜单显示「需要授权」，通常是签名变化使旧授权失效。点击状态打开引导，进入系统设置 → 隐私与安全性 → 辅助功能；旧条目开关无效时先选中点「−」移除，再点「+」添加 `/Applications/StylePolish.app`。检测到授权后会自动继续。
 ## 隐私
 
-文字及可选口吻档案、词表只发送给你自己配置的接口；请核对该服务的隐私政策。
+本地规则不发送文字；「自己的 Key」模式的文字及可选口吻档案、词表发送给你配置的接口；邀请码模式则经过作者服务器转发给模型，中转不保存正文。请核对接收服务的隐私政策。
 手改及采纳、忽略等记录只存在本机 `~/Library/Application Support/StylePolish/history.jsonl`（`0600`），包含原文和改写，可在设置中清空。
-除模型请求外，没有遥测或额外上传；本机历史不会上传。
+除模型请求及邀请码状态查询外，没有遥测或额外上传；本机历史不会上传。邀请码状态查询只发送邀请码和设备 UUID，不发送正文。
 个人词表见 [合成模板](lexicon.example.json)，详细参数见 [使用说明](docs/USAGE.md)。
 
 ## 已知限制
 
 - 长段「理顺」的效果还不稳定，默认模型主要擅长纠错。
-- 只在微信等白名单 App 做过有限测试，完整采纳写回闭环未覆盖所有 App；任意输入框兼容性没有保证。
+- 仅支持微信；微信不同版本和输入框的完整采纳写回兼容性仍需逐项实机验证。
 - 没有自动更新，升级需要重新下载；切换签名后可能需要重新授权辅助功能。
 - 没有 Apple 公证；本机构建的 zip 仅包含构建机器的架构。
 

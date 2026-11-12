@@ -80,14 +80,14 @@ final class SuggestionTests: XCTestCase {
         XCTAssertEqual(cache.edits(for: "尾巴")?.count, 0)
         XCTAssertNil(cache.edits(for: "新写的。"))
     }
-    func testPreviewSegmentsShowFinalTextWithoutDeletions() throws {
-        // Issue #6: preview shows readable final text, rewritten runs grouped, no deleted characters.
+    func testPreviewSegmentsRetainDeletionsWithoutChangingFinalText() throws {
         let source = "🙂这个风险如何规避。好的"
         let edits = [Suggestion(range: NSRange(location: 2, length: 8), original: "这个风险如何规避", replacement: "如何规避这个风险", kind: .fluency, why: ""),
                      Suggestion(range: NSRange(location: 11, length: 2), original: "好的", replacement: "好", kind: .tone, why: "")]
         let preview = try XCTUnwrap(SuggestionPreview(source: source, edits: edits))
-        XCTAssertEqual(preview.segments.map(\.text).joined(), preview.output)
-        XCTAssertEqual(preview.segments, [.init(text: "🙂如何规避", changed: false), .init(text: "这个风险", changed: true), .init(text: "。好", changed: false)])
+        XCTAssertEqual(preview.segments.filter { $0.kind != .deleted }.map(\.text).joined(), preview.output)
+        XCTAssertEqual(preview.segments.filter { $0.kind == .deleted }.map(\.text).joined(), "这个风险的")
+        XCTAssertEqual(preview.segments.filter { $0.kind == .inserted }.map(\.text).joined(), "这个风险")
     }
     func testLevelsIgnoreAndExpiredEvents() throws {
         let e = Suggestion(range: NSRange(location: 0, length: 1), original: "错", replacement: "措", kind: .typo, why: "")

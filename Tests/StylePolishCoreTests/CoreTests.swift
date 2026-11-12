@@ -17,9 +17,9 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(postprocess(" \n"), "")
     }
     func testWhitelist() {
-        XCTAssertTrue(AppWhitelist.contains("com.tencent.xinWeChat", in: ["com.tencent.xinWeChat"]))
-        XCTAssertFalse(AppWhitelist.contains("com.tencent.xinWeChat.evil", in: ["com.tencent.xinWeChat"]))
-        XCTAssertFalse(AppWhitelist.contains(nil, in: ["*"]))
+        XCTAssertTrue(SupportedApps.contains(SupportedApps.wechat))
+        XCTAssertFalse(SupportedApps.contains("com.tencent.xinWeChat.evil"))
+        XCTAssertFalse(SupportedApps.contains(nil))
     }
     func testWriteGuardWithMock() {
         let initial = FocusSnapshot(pid: 12, element: "one", text: "abc", selection: NSRange(location: 1, length: 1))

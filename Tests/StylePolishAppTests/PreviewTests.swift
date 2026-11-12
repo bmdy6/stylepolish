@@ -19,7 +19,7 @@ final class PreviewTests: XCTestCase {
     }
     @MainActor func testPreviewNeverTakesFocusAndDismissesBeforeTyping() throws {
         guard ProcessInfo.processInfo.environment["STYLEPOLISH_UI_TESTS"] == "1" else { throw XCTSkip("Explicit UI opt-in required; this test displays panels") }
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let settings = SettingsStore(defaults: MemoryDefaults())
         let automatic = AutomaticPolish(access: AccessibilityAccess(), settings: settings, history: HistoryStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
         let edit = Suggestion(range: NSRange(location: 0, length: 1), original: "错", replacement: "对", kind: .typo, why: "")
         let preview = SuggestionPreview(source: "错字", edits: [edit])!
@@ -60,7 +60,7 @@ final class PreviewTests: XCTestCase {
     }
     @MainActor func testPausePersistsAndClamps() {
         let suite = UUID().uuidString
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = MemoryDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = SettingsStore(defaults: defaults)
         XCTAssertEqual(settings.pauseSeconds, 1.5)

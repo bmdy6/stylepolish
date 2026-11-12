@@ -47,7 +47,7 @@ private struct LiveCase: Decodable {
 
 final class LiveRequestTests: XCTestCase {
     @MainActor private func run(_ cases: [LiveCase]) async throws {
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: "org.bmdy6.StylePolish")!)
+        let settings = SettingsStore(defaults: RuntimeStorage.defaults)
         guard settings.credentials.current.source.hasPrefix("ai-vault · ") else { throw PolishFailure(message: "Live acceptance requires ai-vault") }
         var config = PolishConfiguration(base: settings.base, model: settings.model, key: settings.credentials.current.key, profile: settings.profile, serviceTier: settings.serviceTier, level: settings.level)
         let env = ProcessInfo.processInfo.environment

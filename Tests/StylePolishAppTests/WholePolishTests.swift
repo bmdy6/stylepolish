@@ -61,8 +61,9 @@ final class WholePolishTests: XCTestCase {
         let output = "先用Ruby。把新盒子收好！"
         let edit = Suggestion(range: NSRange(location: 0, length: source.utf16.count), original: source, replacement: output, kind: .fluency, why: "")
         let preview = try XCTUnwrap(SuggestionPreview.wholeRewrite(source: source, edits: [edit]))
-        XCTAssertEqual(preview.segments.filter(\.changed).map(\.text).joined(), "新")
-        XCTAssertEqual(preview.segments.map(\.text).joined(), output)
+        XCTAssertEqual(preview.segments.filter { $0.kind == .inserted }.map(\.text).joined(), "新")
+        XCTAssertEqual(preview.segments.filter { $0.kind == .deleted }.map(\.text).joined(), "旧")
+        XCTAssertEqual(preview.segments.filter { $0.kind != .deleted }.map(\.text).joined(), output)
     }
     func testCaseInsensitiveEditLocationPreservesUTF16Snapshot() throws {
         let source = "🙂用GITT，再看gitt"
@@ -142,9 +143,10 @@ final class WholePolishTests: XCTestCase {
         let moved = try WholePolishResult(raw: #"{"text":"这次要确认的是如何固定这个书架","edits":[]}"#, source: source)
         XCTAssertTrue(moved.isRewrite)
         let preview = try XCTUnwrap(SuggestionPreview.wholeRewrite(source: source, edits: moved.suggestions))
-        XCTAssertTrue(preview.segments.contains { !$0.changed })
-        XCTAssertTrue(preview.segments.contains { $0.changed })
-        XCTAssertEqual(preview.segments.map(\.text).joined(), moved.text)
+        XCTAssertTrue(preview.segments.contains { $0.kind == .unchanged })
+        XCTAssertTrue(preview.segments.contains { $0.kind == .inserted })
+        XCTAssertTrue(preview.segments.contains { $0.kind == .deleted })
+        XCTAssertEqual(preview.segments.filter { $0.kind != .deleted }.map(\.text).joined(), moved.text)
         XCTAssertTrue(try WholePolishResult(raw: #"{"text":"明天见。","edits":[]}"#, source: "明天见").suggestions.isEmpty)
     }
     func testCleanAndInvalidResponses() throws {

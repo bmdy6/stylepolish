@@ -1,7 +1,34 @@
 import XCTest
+import StylePolishCore
 @testable import StylePolishApp
 
 final class DiagnosticsTests: XCTestCase {
+    func testResultPreviewFieldsAreContentFreeForAllKinds() throws {
+        let source = "敏感正文非长好"
+        let local = Suggestion(range: NSRange(location: 5, length: 1), original: "长", replacement: "常", kind: .typo, why: "")
+        let whole = Suggestion(range: NSRange(location: 0, length: source.utf16.count), original: source, replacement: "另一个表达", kind: .fluency, why: "")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let log = Diagnostics(directory: directory)
+        for suggestions in [[], [local], [whole]] {
+            log.record(DiagnosticEvent(event: "result", bundleID: "synthetic", traceID: "test-trace")
+                .includingPreview(source: source, suggestions: suggestions))
+        }
+        log.flush()
+        let jsonl = try String(contentsOf: log.url)
+        XCTAssertFalse(jsonl.contains(source))
+        XCTAssertFalse(jsonl.contains(whole.replacement))
+        let events = try jsonl.split(separator: "\n").map { try JSONSerialization.jsonObject(with: Data($0.utf8)) as! [String: Any] }
+        XCTAssertEqual(events.map { $0["suggestionCount"] as? Int }, [0, 1, 1])
+        XCTAssertEqual(events.map { $0["previewKind"] as? String }, ["none", "inline", "whole"])
+        XCTAssertEqual(events.map { $0["previewMode"] as? String }, ["diff", "diff", "twoLine"])
+        XCTAssertEqual(events.map { $0["insertedChars"] as? Int }, [0, 1, whole.replacement.count])
+        XCTAssertEqual(events.map { $0["deletedChars"] as? Int }, [0, 1, source.count])
+        for event in events {
+            XCTAssertNil(event["source"]); XCTAssertNil(event["output"]); XCTAssertNil(event["text"])
+            XCTAssertEqual(event["traceID"] as? String, "test-trace")
+        }
+    }
     func testJSONLinesAndRestrictedPermissions() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -17,12 +44,7 @@ final class DiagnosticsTests: XCTestCase {
         let mode = try FileManager.default.attributesOfItem(atPath: log.url.path)[.posixPermissions] as! NSNumber
         XCTAssertEqual(mode.intValue, 0o600)
     }
-    @MainActor func testActivationPolicyAndPointerPlacement() {
-        XCTAssertEqual(AccessibilityAccess.activationAttribute(bundleID: "com.linear"), "AXManualAccessibility")
-        XCTAssertEqual(AccessibilityAccess.activationAttribute(bundleID: "com.electron.lark"), "AXManualAccessibility")
-        XCTAssertEqual(AccessibilityAccess.activationAttribute(bundleID: "com.anthropic.claudefordesktop"), "AXManualAccessibility")
-        XCTAssertEqual(AccessibilityAccess.activationAttribute(bundleID: "com.google.Chrome"), "AXEnhancedUserInterface")
-        XCTAssertNil(AccessibilityAccess.activationAttribute(bundleID: "com.apple.Notes"))
+    @MainActor func testPointerPlacement() {
         let screen = CGRect(x: -1200, y: -800, width: 1200, height: 800)
         let point = CGPoint(x: -600, y: -400)
         let placement = OverlayPlacement.resolve(rawField: nil, screens: [screen], preferredPoint: point)!

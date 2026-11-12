@@ -1,0 +1,299 @@
+[
+  {
+    "wrong": "因该",
+    "right": "应该",
+    "positive": "我因该明天回复",
+    "counterexamples": [
+      "原因该写清楚",
+      "病因该怎么查"
+    ]
+  },
+  {
+    "wrong": "以经",
+    "right": "已经",
+    "positive": "文件以经发了",
+    "counterexamples": [
+      "所以经常迟到",
+      "可以经过大厅"
+    ]
+  },
+  {
+    "wrong": "按装",
+    "right": "安装",
+    "positive": "软件按装好了",
+    "counterexamples": [
+      "请按装箱顺序发货",
+      "按装修进度付款"
+    ]
+  },
+  {
+    "wrong": "按扭",
+    "right": "按钮",
+    "positive": "点击这个按扭",
+    "counterexamples": [
+      "按扭矩要求拧紧",
+      "按扭力大小分组"
+    ]
+  },
+  {
+    "wrong": "按健",
+    "right": "按键",
+    "positive": "这个按健坏了",
+    "counterexamples": [
+      "请按健康状况分组",
+      "按健身计划训练"
+    ]
+  },
+  {
+    "wrong": "复盖",
+    "right": "覆盖",
+    "positive": "积雪复盖了道路",
+    "counterexamples": [
+      "请在答复盖章后寄回",
+      "收到回复盖章件后再归档"
+    ]
+  },
+  {
+    "wrong": "步聚",
+    "right": "步骤",
+    "positive": "请列出步聚",
+    "counterexamples": [
+      "数据同步聚合",
+      "周末徒步聚餐的地点定了吗"
+    ]
+  },
+  {
+    "wrong": "网各",
+    "right": "网络",
+    "positive": "网各连接失败",
+    "counterexamples": [
+      "官网各个页面都能打开",
+      "全网各地用户都能访问"
+    ]
+  },
+  {
+    "wrong": "链街",
+    "right": "链接",
+    "positive": "打开这个链街",
+    "counterexamples": [
+      "这条手链街上就有卖",
+      "这种项链街边也能买到"
+    ]
+  },
+  {
+    "wrong": "链按",
+    "right": "链接",
+    "positive": "请复制链按",
+    "counterexamples": [
+      "手链按材质分类",
+      "项链按长度排列"
+    ]
+  },
+  {
+    "wrong": "请球",
+    "right": "请求",
+    "positive": "请球已发送",
+    "counterexamples": [
+      "邀请球员参加比赛",
+      "申请球场使用权限"
+    ]
+  },
+  {
+    "wrong": "响映",
+    "right": "响应",
+    "positive": "服务器没有响映",
+    "counterexamples": [
+      "这会影响映射结果",
+      "参数变化会影响映像质量"
+    ]
+  },
+  {
+    "wrong": "认征",
+    "right": "认证",
+    "positive": "身份认征通过",
+    "counterexamples": [
+      "确认征求意见的范围",
+      "请确认征信报告的内容"
+    ]
+  },
+  {
+    "wrong": "解蜜",
+    "right": "解密",
+    "positive": "文件解蜜失败",
+    "counterexamples": [
+      "了解蜜蜂的习性",
+      "讲解蜜蜡的鉴别方法"
+    ]
+  },
+  {
+    "wrong": "格试",
+    "right": "格式",
+    "positive": "文件格试错误",
+    "counterexamples": [
+      "资格试用期为一个月",
+      "合格试剂已经入库"
+    ]
+  },
+  {
+    "wrong": "竟争",
+    "right": "竞争",
+    "positive": "市场竟争激烈",
+    "counterexamples": [
+      "毕竟争论解决不了问题",
+      "他毕竟争取过这个机会"
+    ]
+  },
+  {
+    "wrong": "己经",
+    "right": "已经",
+    "positive": "我己经发了",
+    "counterexamples": [
+      "我自己经常这样",
+      "我自己经历过"
+    ]
+  },
+  {
+    "wrong": "细截",
+    "right": "细节",
+    "positive": "请补充细截",
+    "counterexamples": [
+      "发个详细截图",
+      "请提供详细截面图"
+    ]
+  },
+  {
+    "wrong": "材科",
+    "right": "材料",
+    "positive": "请提交材科",
+    "counterexamples": [
+      "教材科目需要调整",
+      "这部电影的题材科幻色彩很浓"
+    ]
+  },
+  {
+    "wrong": "迭带",
+    "right": "迭代",
+    "positive": "版本持续迭带",
+    "counterexamples": [
+      "人员更迭带来新的机会",
+      "权力更迭带来变化"
+    ]
+  },
+  {
+    "wrong": "叠代",
+    "right": "迭代",
+    "positive": "继续叠代产品",
+    "counterexamples": [
+      "区域重叠代表什么",
+      "不要堆叠代码块"
+    ]
+  },
+  {
+    "wrong": "申清",
+    "right": "申请",
+    "positive": "请填写申清表",
+    "counterexamples": [
+      "重申清理要求",
+      "重申清廉从政的原则"
+    ]
+  },
+  {
+    "wrong": "适佩",
+    "right": "适配",
+    "positive": "请做好适佩",
+    "counterexamples": [
+      "为了舒适佩戴，请调整头带",
+      "舒适佩戴需要合适的尺寸"
+    ]
+  },
+  {
+    "wrong": "情序",
+    "right": "情绪",
+    "positive": "需要控制情序",
+    "counterexamples": [
+      "请填写事情序号",
+      "剧情序章已经更新"
+    ]
+  },
+  {
+    "wrong": "布暑",
+    "right": "部署",
+    "positive": "服务布暑完成",
+    "counterexamples": [
+      "发布暑假安排",
+      "宣布暑期计划"
+    ]
+  },
+  {
+    "wrong": "延申",
+    "right": "延伸",
+    "positive": "话题继续延申",
+    "counterexamples": [
+      "顺延申请截止日期",
+      "不要拖延申请手续"
+    ]
+  },
+  {
+    "wrong": "阻档",
+    "right": "阻挡",
+    "positive": "不要阻档道路",
+    "counterexamples": [
+      "把电阻档位调低",
+      "测量前先切换电阻档"
+    ]
+  },
+  {
+    "wrong": "秘蜜",
+    "right": "秘密",
+    "positive": "这是一个秘蜜",
+    "counterexamples": [
+      "探秘蜜蜂王国",
+      "探秘蜜蜡的形成过程"
+    ]
+  },
+  {
+    "wrong": "签暑",
+    "right": "签署",
+    "positive": "合同已经签暑",
+    "counterexamples": [
+      "请会签暑期活动方案",
+      "请会签暑假值班表"
+    ]
+  },
+  {
+    "wrong": "有郊",
+    "right": "有效",
+    "positive": "这个方法有郊",
+    "counterexamples": [
+      "没有郊游安排",
+      "所有郊区线路都停运了"
+    ]
+  },
+  {
+    "wrong": "无郊",
+    "right": "无效",
+    "positive": "这个设置无郊",
+    "counterexamples": [
+      "有无郊游计划请提前说",
+      "请确认有无郊区公交"
+    ]
+  },
+  {
+    "wrong": "郊率",
+    "right": "效率",
+    "positive": "提高工作郊率",
+    "counterexamples": [
+      "市郊率先恢复供电",
+      "近郊率先启动改造"
+    ]
+  },
+  {
+    "wrong": "郊果",
+    "right": "效果",
+    "positive": "这个方案郊果很好",
+    "counterexamples": [
+      "市郊果园丰收了",
+      "近郊果农正在采摘"
+    ]
+  }
+]

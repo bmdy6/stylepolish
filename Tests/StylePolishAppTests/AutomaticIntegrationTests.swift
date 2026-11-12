@@ -29,10 +29,10 @@ final class AutomaticIntegrationTests: XCTestCase {
         // Otherwise its late termination can reactivate the browser behind the fixture.
         try await until { NSRunningApplication.runningApplications(withBundleIdentifier: "org.bmdy6.StylePolish.SyntheticEditor").isEmpty }
         let fixture = try await NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: launch)
-        let defaults = UserDefaults(suiteName: root.lastPathComponent)!
+        let defaults = MemoryDefaults()
         let settings = SettingsStore(defaults: defaults, credentialHome: root)
-        settings.apps = ["org.bmdy6.StylePolish.SyntheticEditor"]; settings.pauseSeconds = 0.5
-        let access = AccessibilityAccess()
+        settings.pauseSeconds = 0.5
+        let access = AccessibilityAccess(testingApp: "org.bmdy6.StylePolish.SyntheticEditor")
         let automatic = AutomaticPolish(access: access, settings: settings, history: HistoryStore(directory: root))
         automatic.configurationProvider = { PolishConfiguration(base: base, model: model, key: "synthetic", profile: "") }
         defer {
@@ -41,13 +41,12 @@ final class AutomaticIntegrationTests: XCTestCase {
             try? FileManager.default.removeItem(at: root)
         }
         fixture.activate(options: [])
-        access.activateAccessibility(for: fixture)
-        try await until { access.automaticCapture(enabled: settings.apps)?.input == self.source }
-        if access.automaticCapture(enabled: settings.apps) == nil {
+        try await until { access.automaticCapture()?.input == self.source }
+        if access.automaticCapture() == nil {
             let focus = access.focused()
             print("FIXTURE capture failed: front=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none") expectedPID=\(fixture.processIdentifier) focusPID=\(focus?.0.processIdentifier ?? -1)")
         }
-        let capture = try XCTUnwrap(access.automaticCapture(enabled: settings.apps))
+        let capture = try XCTUnwrap(access.automaticCapture())
         XCTAssertEqual(capture.pid, fixture.processIdentifier)
         automatic.start()
         try await until { automatic.session.suggestions.count == (model == "whole" ? 1 : 2) }

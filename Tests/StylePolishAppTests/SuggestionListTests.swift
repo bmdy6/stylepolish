@@ -41,7 +41,7 @@ final class SuggestionListTests: XCTestCase {
         _ = try makeOverlay()
         let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let suite = "StylePolish-test-" + UUID().uuidString
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = MemoryDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
         let automatic = AutomaticPolish(access: AccessibilityAccess(), settings: SettingsStore(defaults: defaults, credentialHome: home), history: HistoryStore(directory: home))
         defer { automatic.stop() }

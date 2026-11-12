@@ -9,12 +9,21 @@ struct PolishFailure: LocalizedError {
     var parameter: String? = nil
     var errorDescription: String? { message }
 }
-struct PolishConfiguration { let base: String; let model: String; let key: String; let profile: String; var serviceTier: String = "priority"; var credentialError: String? = nil; var reasoningEffort: String? = "none"; var level: Strictness = .standard }
+struct PolishConfiguration { let base: String; let model: String; let key: String; let profile: String; var serviceTier: String = "priority"; var credentialError: String? = nil; var reasoningEffort: String? = "none"; var level: Strictness = .standard; var inviteDeviceID: String? = nil; var inviteBlocked: FallbackReason? = nil; var habits = HabitProfile() }
 struct RequestMetrics: Codable {
     var firstTokenMS: Int? = nil
     var totalMS = 0
     var completionTokens: Int? = nil
     var reasoningTokens: Int? = nil
+    var promptTokens: Int? = nil
+    var totalTokens: Int? = nil
+    var httpStatus: Int? = nil
+    var errorCategory: String? = nil
+    // Transient; only DiagnosticTrace.result forwards this through the debug gate.
+    var modelResponse: String? = nil
+    private enum CodingKeys: String, CodingKey {
+        case firstTokenMS, totalMS, completionTokens, reasoningTokens, promptTokens, totalTokens, httpStatus, errorCategory
+    }
 }
 struct PolishClient {
     var lexiconURL: URL = Self.defaultLexiconURL
@@ -23,11 +32,12 @@ struct PolishClient {
     var promptDirectory: URL? = nil
     #endif
     static var defaultLexiconURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".style-polish/lexicon.json")
+        RuntimeStorage.home.appendingPathComponent(".style-polish/lexicon.json")
     }
     // Establish TLS/HTTP connection while the app is idle. No text, credential or paid
     // model request is sent; even a 401 response warms the same connection pool.
     func warmConnection(config: PolishConfiguration) async {
+        guard config.inviteDeviceID == nil else { return }
         guard var request = try? makeRequest("", config: config, structured: false) else { return }
         request.url = request.url?.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("models")
         request.httpMethod = "GET"; request.httpBody = nil; request.timeoutInterval = 5
@@ -71,9 +81,23 @@ struct PolishClient {
         await update(result)
         return result
     }
-    func wholeResult(_ input: String, config: PolishConfiguration, metrics: @escaping @MainActor (RequestMetrics) -> Void = { _ in }) async throws -> WholePolishResult {
-        let raw = try await polish(input, config: config, structured: true, metrics: metrics) { _ in }
-        return try WholePolishResult(raw: raw, source: input)
+    @MainActor func wholeResult(_ input: String, config: PolishConfiguration, metrics: @escaping @MainActor (RequestMetrics) -> Void = { _ in }) async throws -> WholePolishResult {
+        let started = Date()
+        var timing = RequestMetrics()
+        do {
+            let raw = try await polish(input, config: config, structured: true, metrics: { timing = $0 }) { _ in }
+            do {
+                let result = try WholePolishResult(raw: raw, source: input)
+                timing.totalMS = Int(Date().timeIntervalSince(started) * 1000); metrics(timing)
+                return result
+            } catch {
+                timing.errorCategory = "response_validation"
+                throw error
+            }
+        } catch {
+            timing.totalMS = Int(Date().timeIntervalSince(started) * 1000); metrics(timing)
+            throw error
+        }
     }
     static func resource(_ name: String) throws -> String {
         guard let url = resourceBundle.url(forResource: name, withExtension: "md", subdirectory: "prompts") else {
@@ -90,7 +114,13 @@ struct PolishClient {
         return try Self.resource(name)
     }
     func makeRequest(_ input: String, config: PolishConfiguration, structured: Bool) throws -> URLRequest {
-        guard !config.key.isEmpty else { throw PolishFailure(message: config.credentialError ?? "没有 API Key，请在设置里填写") }
+        if config.inviteDeviceID != nil {
+            _ = try InviteService.endpoint(config.base)
+            if let blocked = config.inviteBlocked { throw PolishFailure(message: blocked.title, code: blocked.inviteCode) }
+            guard InviteService.validCode(config.key) else { throw InviteService.failure("invite_invalid")! }
+            guard UUID(uuidString: config.inviteDeviceID!) != nil else { throw PolishFailure(message: "设备标识无效") }
+        }
+        guard !config.key.isEmpty else { throw PolishFailure(message: config.credentialError ?? "没有 API Key，请在设置里填写", code: "missing_key") }
         guard var url = URL(string: config.base), url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(url.host ?? "")), url.host != nil, url.user == nil, url.password == nil, url.query == nil, url.fragment == nil else {
             throw PolishFailure(message: "接口地址无效，请使用 HTTPS（本机服务可使用 HTTP）")
         }
@@ -102,22 +132,41 @@ struct PolishClient {
            let words = String(data: data, encoding: .utf8) {
             prompt += "\n" + (try promptResource("lexicon")) + "\n" + words
         }
+        if !config.habits.promptLines.isEmpty {
+            prompt += "\n\n" + (try promptResource("habits")) + "\n" + config.habits.promptLines.prefix(10).joined(separator: "\n")
+        }
         let path = (config.profile as NSString).expandingTildeInPath
         if !path.isEmpty, let profile = try? String(contentsOfFile: path, encoding: .utf8) { prompt += "\n\n口吻档案：\n" + profile }
         var request = URLRequest(url: url, timeoutInterval: 30)
         request.httpMethod = "POST"
         request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
+        if let device = config.inviteDeviceID { request.setValue(device, forHTTPHeaderField: "X-StylePolish-Device") }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         var body: [String: Any] = ["model": config.model, "stream": true, "max_completion_tokens": 2048,
             "stream_options": ["include_usage": true],
             "messages": [["role": "system", "content": prompt], ["role": "user", "content": input]]]
         if config.model.hasPrefix("gpt-6-luna"), let effort = config.reasoningEffort { body["reasoning_effort"] = effort }
+        if config.model.hasPrefix("deepseek") { body["thinking"] = ["type": "disabled"] }
         if !config.serviceTier.isEmpty { body["service_tier"] = config.serviceTier }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }
     func polish(_ input: String, config: PolishConfiguration, structured: Bool = false, metrics: @escaping @MainActor (RequestMetrics) -> Void = { _ in }, update: @escaping @MainActor (String) -> Void) async throws -> String {
+        let started = Date()
+        do {
+            return try await performPolish(input, config: config, structured: structured, metrics: metrics, update: update)
+        } catch {
+            let failure = error as? PolishFailure
+            var timing = RequestMetrics()
+            timing.totalMS = Int(Date().timeIntervalSince(started) * 1000)
+            timing.httpStatus = failure?.httpStatus
+            timing.errorCategory = error is CancellationError ? "cancelled" : failure?.code == "missing_key" ? "missing_key" : failure?.code == "network" ? "network" : failure?.code == "response" ? "response" : failure?.httpStatus != nil ? "http" : "response_or_configuration"
+            await metrics(timing)
+            throw error
+        }
+    }
+    private func performPolish(_ input: String, config: PolishConfiguration, structured: Bool, metrics: @escaping @MainActor (RequestMetrics) -> Void, update: @escaping @MainActor (String) -> Void) async throws -> String {
         let started = Date()
         let request = try makeRequest(input, config: config, structured: structured)
         // Reuse the connection pool across keystrokes. Request/task cancellation is isolated;
@@ -125,9 +174,11 @@ struct PolishClient {
         let session = PolishTransport.session
         return try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask { [request] in
+                var status: Int?
                 do {
                     let (bytes, response) = try await session.bytes(for: request)
                     guard let response = response as? HTTPURLResponse else { throw PolishFailure(message: "服务响应无效") }
+                    status = response.statusCode
                     if !(200...299).contains(response.statusCode) {
                         var body = Data()
                         for try await byte in bytes {
@@ -136,26 +187,30 @@ struct PolishClient {
                         }
                         let error = ((try? JSONSerialization.jsonObject(with: body)) as? [String: Any])?["error"] as? [String: Any]
                         let code = error?["code"] as? String
+                        if config.inviteDeviceID != nil, let failure = InviteService.failure(code, status: response.statusCode) { throw failure }
                         let parameter = error?["param"] as? String
+                        if String(data: body, encoding: .utf8)?.contains("insufficient_quota") == true { throw PolishFailure(message: "额度用完", httpStatus: response.statusCode, code: "insufficient_quota") }
                         if code == "model_not_found" || (response.statusCode == 400 && parameter == "model") {
-                            throw PolishFailure(message: "模型不存在或不可用，请检查模型名称")
+                            throw PolishFailure(message: "模型不存在或不可用，请检查模型名称", httpStatus: response.statusCode, code: code)
                         }
                         switch response.statusCode {
-                        case 401: throw PolishFailure(message: "Key 无效，请检查设置")
-                        case 403: throw PolishFailure(message: "模型服务没有权限，请检查 Key 和模型")
-                        case 404: throw PolishFailure(message: "模型不存在或不可用，请检查模型名称")
-                        case 429: throw PolishFailure(message: "额度不足或请求过频，请检查账户额度后重试")
+                        case 401: throw PolishFailure(message: "Key 无效，请检查设置", httpStatus: response.statusCode, code: code)
+                        case 403: throw PolishFailure(message: "模型服务没有权限，请检查 Key 和模型", httpStatus: response.statusCode, code: code)
+                        case 404: throw PolishFailure(message: "模型不存在或不可用，请检查模型名称", httpStatus: response.statusCode, code: code)
+                        case 429: throw PolishFailure(message: "额度不足或请求过频，请检查账户额度后重试", httpStatus: response.statusCode, code: code)
                         case 400: throw PolishFailure(message: "参数不支持", detail: String(data: body, encoding: .utf8)?.replacingOccurrences(of: config.key, with: "[REDACTED]"), httpStatus: response.statusCode, code: code, parameter: parameter)
-                        default: throw PolishFailure(message: "模型服务返回 HTTP \(response.statusCode)")
+                        default: throw PolishFailure(message: "模型服务返回 HTTP \(response.statusCode)", httpStatus: response.statusCode, code: code)
                         }
                     }
-                    var timing = RequestMetrics()
+                    var timing = RequestMetrics(); timing.httpStatus = response.statusCode
                     var parser = SSEParser(), result = ""
                     for try await line in bytes.lines {
                         try Task.checkCancellation()
                         if line.hasPrefix("data:"), let data = String(line.dropFirst(5)).data(using: .utf8),
                            let chunk = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
                            let usage = chunk["usage"] as? [String: Any] {
+                            timing.promptTokens = usage["prompt_tokens"] as? Int
+                            timing.totalTokens = usage["total_tokens"] as? Int
                             timing.completionTokens = usage["completion_tokens"] as? Int
                             timing.reasoningTokens = (usage["completion_tokens_details"] as? [String: Any])?["reasoning_tokens"] as? Int
                         }
@@ -171,15 +226,20 @@ struct PolishClient {
                     let cleaned = structured ? result.trimmingCharacters(in: .whitespacesAndNewlines) : postprocess(result)
                     guard !cleaned.isEmpty else { throw PolishFailure(message: "模型返回了空内容，请重试") }
                     timing.totalMS = Int(Date().timeIntervalSince(started) * 1000)
+                    timing.modelResponse = result
                     await metrics(timing)
                     return cleaned
-                } catch let error as URLError {
-                    throw PolishFailure(message: error.code == .timedOut ? "接口超时（30s），原文没动" : "网络失败，请检查连接")
-                } catch is DecodingError { throw PolishFailure(message: "模型响应格式无效，请检查兼容接口") }
+                } catch let error as PolishFailure {
+                    throw PolishFailure(message: error.message, detail: error.detail, httpStatus: error.httpStatus ?? status, code: error.code ?? (status.map { (200...299).contains($0) } == true ? "response" : nil), parameter: error.parameter)
+                } catch is CancellationError { throw CancellationError() }
+                catch let error as URLError {
+                    if error.code == .cancelled { throw CancellationError() }
+                    throw PolishFailure(message: error.code == .timedOut ? "接口超时（30s），原文没动" : "网络失败，请检查连接", code: "network")
+                } catch is DecodingError { throw PolishFailure(message: "模型响应格式无效，请检查兼容接口", httpStatus: status, code: "response") }
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: 30_000_000_000)
-                throw PolishFailure(message: "接口超时（30s），原文没动")
+                throw PolishFailure(message: "接口超时（30s），原文没动", code: "network")
             }
             defer { group.cancelAll() }
             return try await group.next()!
@@ -190,7 +250,7 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
 }
 
-private enum PolishTransport {
+enum PolishTransport {
     static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 30; config.timeoutIntervalForResource = 30

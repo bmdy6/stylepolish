@@ -8,6 +8,8 @@ import StylePolishCore
         guard let prompt = PolishClient.promptURL, FileManager.default.fileExists(atPath: prompt.path) else { throw CocoaError(.fileReadNoSuchFile) }
         let url = URL(fileURLWithPath: directory, isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try captureHabits(to: url)
+        if CommandLine.arguments.contains("--habits-only") { return }
         let indicators: [InputIndicatorState] = [.watching, .checking, .clean, .suggestions(3), .warning("模拟：读不到 AXValue，使用 ⌥ Space")]
         for (index, indicator) in indicators.enumerated() {
             let demo = VStack(alignment: .leading, spacing: 20) {
@@ -35,7 +37,7 @@ import StylePolishCore
             state.phase = phase; state.message = "润色失败：接口超时（30s）。原文没动。"
             try render(PanelView(state: state), size: NSSize(width: 440, height: phase == .edit ? 240 : 210), to: url.appendingPathComponent(name + ".png"))
         }
-        let defaults = UserDefaults(suiteName: "org.bmdy6.StylePolish.fixture")!
+        let defaults = MemoryDefaults()
         defaults.removePersistentDomain(forName: "org.bmdy6.StylePolish.fixture")
         let settings = SettingsStore(defaults: defaults)
         try render(SettingsView(settings: settings, openHistory: {}, clearHistory: {}, permission: {}, fixture: true), size: NSSize(width: 614, height: 650), to: url.appendingPathComponent("settings.png"))
@@ -83,7 +85,7 @@ import StylePolishCore
         while !captured { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
         backdrop.orderOut(nil)
     }
-    private static func render<V: View>(_ view: V, size: NSSize, to url: URL) throws {
+    static func render<V: View>(_ view: V, size: NSSize, to url: URL) throws {
         let host = NSHostingView(rootView: view.environment(\.colorScheme, .light))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = host; window.appearance = NSAppearance(named: .aqua)

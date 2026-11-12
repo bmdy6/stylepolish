@@ -12,8 +12,11 @@ public struct Suggestion: Identifiable, Equatable {
     public let id: UUID
     public var range: NSRange
     public let original: String, replacement: String, kind: SuggestionKind, why: String
-    public init(id: UUID = UUID(), range: NSRange, original: String, replacement: String, kind: SuggestionKind, why: String) {
-        self.id = id; self.range = range; self.original = original; self.replacement = replacement; self.kind = kind; self.why = why
+    /// False for advice without a reliable replacement. Empty replacement still
+    /// means a real deletion when canApply is true.
+    public let canApply: Bool
+    public init(id: UUID = UUID(), range: NSRange, original: String, replacement: String, kind: SuggestionKind, why: String, canApply: Bool = true) {
+        self.id = id; self.range = range; self.original = original; self.replacement = replacement; self.kind = kind; self.why = why; self.canApply = canApply
     }
     public func matches(_ text: String) -> Bool {
         let ns = text as NSString
@@ -226,7 +229,7 @@ public struct SuggestionSession {
     public func isIgnored(_ edit: Suggestion, sentence: String) -> Bool { ignored.contains(key(edit, sentence)) }
 }
 public struct SuggestionEvent: Encodable {
-    public enum Action: String, Encodable { case accept, ignore, expired, hidden }
+    public enum Action: String, Codable { case accept, ignore, expired, hidden }
     public let ts: String, app_bundle_id: String, sentence: String, original: String, replacement: String
     public let kind: SuggestionKind, action: Action, level: Strictness, model: String
     public init(appBundleID: String, sentence: String, suggestion: Suggestion, action: Action, level: Strictness, model: String) {
@@ -252,8 +255,9 @@ public struct SuggestionPreview: Equatable {
     public let source: String
     public let output: String
     public init?(source: String, edits: [Suggestion]) {
-        guard !edits.isEmpty else { return nil }
-        let sorted = edits.sorted { $0.range.location < $1.range.location }
+        let applicable = edits.filter(\.canApply)
+        guard !applicable.isEmpty else { return nil }
+        let sorted = applicable.sorted { $0.range.location < $1.range.location }
         var end = 0
         for edit in sorted {
             guard edit.matches(source), edit.range.location >= end else { return nil }
@@ -262,23 +266,42 @@ public struct SuggestionPreview: Equatable {
         var output = source
         for edit in sorted.reversed() { output = (output as NSString).replacingCharacters(in: edit.range, with: edit.replacement) }
         var segments: [Segment] = []
-        let changedRanges = Set(PolishTextComparison.insertedRanges(source: source, output: output).map(\.location))
-        var offset = 0
-        for character in output {
-            let value = String(character)
-            let changed = changedRanges.contains(offset)
-            offset += value.utf16.count
-            if let last = segments.last, last.changed == changed { segments[segments.count - 1].text += value }
-            else { segments.append(Segment(text: value, changed: changed)) }
+        func append(_ text: String, _ kind: Segment.Kind) {
+            guard !text.isEmpty else { return }
+            if segments.last?.kind == kind { segments[segments.count - 1].text += text }
+            else { segments.append(Segment(text: text, kind: kind)) }
         }
+        let before = source as NSString, after = output as NSString
+        var offset = 0
+        for change in PolishTextComparison.changes(source: source, output: output) {
+            append(after.substring(with: NSRange(location: offset, length: change.after.location - offset)), .unchanged)
+            append(before.substring(with: change.before), .deleted)
+            append(after.substring(with: change.after), .inserted)
+            offset = NSMaxRange(change.after)
+        }
+        append(after.substring(from: offset), .unchanged)
         self.source = source; self.output = output; self.segments = segments
     }
     /// Automatic previews are reserved for atomic full-field rewrites.
     public static func wholeRewrite(source: String, edits: [Suggestion]) -> SuggestionPreview? {
-        guard edits.contains(where: { [.fluency, .order].contains($0.kind) && $0.original == source && $0.range == NSRange(location: 0, length: source.utf16.count) }) else { return nil }
+        guard edits.contains(where: { $0.canApply && [.fluency, .order].contains($0.kind) && $0.original == source && $0.range == NSRange(location: 0, length: source.utf16.count) }) else { return nil }
         return SuggestionPreview(source: source, edits: edits)
     }
-    /// Final text split into unchanged and rewritten runs; deletions are not shown.
-    public struct Segment: Equatable { public var text: String; public let changed: Bool }
+    public struct Segment: Equatable {
+        public enum Kind { case unchanged, inserted, deleted }
+        public var text: String
+        public let kind: Kind
+    }
     public let segments: [Segment]
+    public enum Mode: String { case diff, twoLine }
+    public static let twoLineThreshold = 0.6
+    public var insertedChars: Int { segments.filter { $0.kind == .inserted }.reduce(0) { $0 + $1.text.count } }
+    public var deletedChars: Int { segments.filter { $0.kind == .deleted }.reduce(0) { $0 + $1.text.count } }
+    public var mode: Mode {
+        Double(insertedChars + deletedChars) > Double(source.count) * Self.twoLineThreshold ? .twoLine : .diff
+    }
+    /// Used for layout as well as rendering, including removed text and row labels.
+    public var displayText: String {
+        mode == .twoLine ? "原 \(source)\n改 \(output)" : segments.map(\.text).joined()
+    }
 }

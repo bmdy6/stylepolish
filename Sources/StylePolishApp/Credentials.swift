@@ -1,7 +1,8 @@
 import Foundation
 import Darwin
+import StylePolishCore
 
-struct LoadedCredential {
+struct LoadedCredential: Equatable {
     var key = ""
     var source = "未配置"
     var warnings: [String] = []
@@ -13,7 +14,7 @@ final class CredentialStore {
     let vaultURL: URL
     let localURL: URL
     private(set) var current = LoadedCredential()
-    init(home: URL = FileManager.default.homeDirectoryForCurrentUser, keyName: String = "OPENAI_PLATFORM_API_KEY") {
+    init(home: URL = RuntimeStorage.home, keyName: String = "OPENAI_PLATFORM_API_KEY") {
         vaultURL = home.appendingPathComponent(".config/ai-vault/vault.json")
         localURL = home.appendingPathComponent(".config/stylepolish/openai-key")
         reload(keyName: keyName)

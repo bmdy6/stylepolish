@@ -33,13 +33,13 @@ private final class UnreadableEditor: NSTextView {
                 NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 lines.append("AX trusted: \(AccessibilityAccess.trusted()); front: \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"); self: \(ProcessInfo.processInfo.processIdentifier)")
-                let access = AccessibilityAccess()
+                let access = AccessibilityAccess(testingApp: NSRunningApplication.current.bundleIdentifier ?? "")
                 guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier else { throw PolishFailure(message: "BLOCKED: another app or system permission dialog owns focus") }
                 guard let (_, focused) = access.focused() else { throw PolishFailure(message: "AX focus unavailable; authorize accessibility") }
                 try check(access.attribute(focused, kAXValueAttribute) == nil, "custom native editor hides AXValue")
                 clipboardTouched = true
                 NSPasteboard.general.clearContents(); NSPasteboard.general.setString("simulation sentinel", forType: .string)
-                let capture = try await access.capture(enabled: [NSRunningApplication.current.bundleIdentifier ?? ""], forceWholeClipboard: true)
+                let capture = try await access.capture(forceWholeClipboard: true)
                 try check(capture.input == editor.string, "Cmd-A/C captures entire unreadable editor")
                 try check(NSPasteboard.general.string(forType: .string) == "simulation sentinel", "clipboard restored after capture")
                 let model = PanelModel(); model.appName = "模拟输入框"; model.input = capture.input; model.output = "我觉得明天再做吧"; model.phase = .preview

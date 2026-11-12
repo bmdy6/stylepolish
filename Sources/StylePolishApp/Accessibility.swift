@@ -14,23 +14,35 @@ struct CapturedInput {
     let clipboard: Bool
     let bounds: CGRect?
     var clipboardWhole = false
+    var attachments: AttachmentEvidence = .unknown
 }
 
 @MainActor final class AccessibilityAccess {
+    private let frontmostApplication: () -> NSRunningApplication?
     private var pendingFallback: (pid_t, AXUIElement)?
     private(set) var fallbackApps = Set<String>()
-    func useClipboard(for bundleID: String) { fallbackApps.insert(bundleID) }
-    static func activationAttribute(bundleID: String) -> String? {
-        if bundleID.hasPrefix("com.google.Chrome") { return "AXEnhancedUserInterface" }
-        if ["com.linear", "com.electron.lark", "com.anthropic.claudefordesktop"].contains(bundleID) { return "AXManualAccessibility" }
-        return nil
+    #if DEBUG
+    // Explicit synthetic editors only; absent from release and never loaded from settings.
+    private var testingApp: String?
+    init(testingApp: String) {
+        precondition(testingApp == "org.bmdy6.StylePolish" || testingApp.hasPrefix("org.bmdy6.StylePolish."))
+        self.testingApp = testingApp
+        self.frontmostApplication = { NSWorkspace.shared.frontmostApplication }
     }
-    func activateAccessibility(for app: NSRunningApplication) {
-        guard let id = app.bundleIdentifier, let name = Self.activationAttribute(bundleID: id) else { return }
-        let element = AXUIElementCreateApplication(app.processIdentifier)
-        AXUIElementSetMessagingTimeout(element, 0.3)
-        let result = AXUIElementSetAttributeValue(element, name as CFString, kCFBooleanTrue)
-        Diagnostics.shared.record(DiagnosticEvent(event: "ax_activation", bundleID: id, axAttribute: name, axResult: result.rawValue, error: result == .success ? nil : "ax_set_failed"))
+    #endif
+    init(frontmostApplication: @escaping () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }) {
+        self.frontmostApplication = frontmostApplication
+    }
+    func supports(_ bundleID: String?) -> Bool {
+        #if DEBUG
+        if let testingApp { return bundleID == testingApp }
+        #endif
+        return SupportedApps.contains(bundleID)
+    }
+    var targetSupported: Bool { supports(frontmostApplication()?.bundleIdentifier) }
+    func useClipboard(for bundleID: String) {
+        guard supports(bundleID) else { return }
+        fallbackApps.insert(bundleID)
     }
     static func trusted(prompt: Bool = false) -> Bool {
         AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: prompt] as CFDictionary)
@@ -40,10 +52,10 @@ struct CapturedInput {
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
     }
     func focused() -> (NSRunningApplication, AXUIElement)? {
-        guard let app = NSWorkspace.shared.frontmostApplication,
+        guard let app = frontmostApplication(), supports(app.bundleIdentifier),
               let element = attribute(AXUIElementCreateApplication(app.processIdentifier), kAXFocusedUIElementAttribute),
               CFGetTypeID(element) == AXUIElementGetTypeID(),
-              NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { return nil }
+              frontmostApplication()?.processIdentifier == app.processIdentifier else { return nil }
         return (app, unsafeBitCast(element, to: AXUIElement.self))
     }
     func allowed(_ element: AXUIElement) -> Bool {
@@ -67,15 +79,15 @@ struct CapturedInput {
         guard let raw = attribute(element, kAXWindowAttribute), CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
         return bounds(unsafeBitCast(raw, to: AXUIElement.self))
     }
-    func capture(enabled: [String], forceWholeClipboard: Bool = false) async throws -> CapturedInput {
+    func capture(forceWholeClipboard: Bool = false) async throws -> CapturedInput {
+        guard targetSupported else { throw PolishFailure(message: "目前只支持微信") }
         guard Self.trusted() else { throw PolishFailure(message: "没有辅助功能权限，请在设置中授权") }
         guard let (app, element) = focused() else { throw PolishFailure(message: "找不到当前输入框") }
-        guard AppWhitelist.contains(app.bundleIdentifier, in: enabled) else { throw PolishFailure(message: "这个 App 未启用") }
         guard allowed(element) else { throw PolishFailure(message: "只支持普通文字输入框，不读取密码框") }
         let selectedText = attribute(element, kAXSelectedTextAttribute) as? String ?? ""
         let fullText = attribute(element, kAXValueAttribute) as? String
         var range = selection(element)
-        let wholeClipboard = forceWholeClipboard || app.bundleIdentifier == "com.tencent.xinWeChat"
+        let wholeClipboard = forceWholeClipboard || app.bundleIdentifier == SupportedApps.wechat
         var input = selectedText.isEmpty ? (fullText ?? "") : selectedText
         let fallback = wholeClipboard || (input.isEmpty && fullText == nil)
         if fallback {
@@ -97,10 +109,10 @@ struct CapturedInput {
         pendingFallback = nil
         guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw PolishFailure(message: "输入框或选区没有文字") }
         guard input.utf8.count <= 100_000 else { throw PolishFailure(message: "原文过长，请选中较短的一段") }
-        return CapturedInput(pid: app.processIdentifier, bundleID: app.bundleIdentifier ?? "", appName: app.localizedName ?? "App", element: element, input: input, fullText: fallback ? nil : fullText, range: range, selected: !selectedText.isEmpty || fallback, clipboard: fallback, bounds: bounds(element), clipboardWhole: wholeClipboard)
+        return CapturedInput(pid: app.processIdentifier, bundleID: app.bundleIdentifier ?? "", appName: app.localizedName ?? "App", element: element, input: input, fullText: fallback ? nil : fullText, range: range, selected: !selectedText.isEmpty || fallback, clipboard: fallback, bounds: bounds(element), clipboardWhole: wholeClipboard, attachments: attachmentEvidence(element, text: fullText ?? input))
     }
     func snapshot(_ capture: CapturedInput) -> FocusSnapshot? {
-        guard let (app, element) = focused(), allowed(element) else { return nil }
+        guard supports(capture.bundleID), let (app, element) = focused(), allowed(element) else { return nil }
         let text = capture.clipboard ? nil : attribute(element, kAXValueAttribute) as? String
         let selected = capture.clipboard ? nil : attribute(element, kAXSelectedTextAttribute) as? String
         return FocusSnapshot(pid: app.processIdentifier, element: CFEqual(element, capture.element) ? "original" : "different", text: text ?? selected ?? "", selection: selection(element))
@@ -111,23 +123,70 @@ struct CapturedInput {
         return WriteGuard.canWrite(original, provider: Provider(value: snapshot(capture)))
     }
     // Returns false for stale input. Caller copies result, with no field writes.
-    func write(_ text: String, to capture: CapturedInput) async throws -> Bool {
-        guard unchanged(capture) else { return false }
+    func write(_ text: String, to capture: CapturedInput, diagnostics: DiagnosticTrace? = nil) async throws -> Bool {
+        guard supports(capture.bundleID), targetSupported else { throw PolishFailure(message: "目前只支持微信") }
+        let source = capture.fullText ?? capture.input
+        let expected: String
+        if capture.selected, let range = capture.range, let full = capture.fullText, NSMaxRange(range) <= full.utf16.count {
+            expected = (full as NSString).replacingCharacters(in: range, with: text)
+        } else { expected = text }
+        guard unchanged(capture) else {
+            diagnostics?.write(source: source, expected: expected, readback: nil, method: "copy_only", attachment: capture.attachments, error: "stale_input")
+            return false
+        }
+        var evidence = attachmentEvidence(capture.element, text: attribute(capture.element, kAXValueAttribute) as? String ?? capture.input)
+        var method = "none"
+        var failure: String?
+        defer {
+            let readback = allowed(capture.element) ? attribute(capture.element, kAXValueAttribute) as? String : nil
+            diagnostics?.write(source: source, expected: expected, readback: readback, method: method, attachment: evidence, error: failure ?? (method == "copy_only" ? "attachment_protected" : method == "none" ? "write_failed" : nil))
+            Diagnostics.shared.record(DiagnosticEvent(event: "manual_write", bundleID: capture.bundleID, hasAttachment: evidence.hasAttachment || capture.attachments.hasAttachment, attachmentEvidenceComplete: evidence.complete, writeMethod: method, traceID: diagnostics?.id))
+        }
+        func copyOnly() throws -> Never {
+            guard targetSupported else { throw PolishFailure(message: "目前只支持微信") }
+            method = "copy_only"
+            ClipboardTransaction.copyResult(AttachmentSafety.clipboardText(text))
+            throw PolishFailure(message: evidence.hasAttachment || capture.attachments.hasAttachment ? AttachmentSafety.copyMessage : AttachmentSafety.unknownMessage)
+        }
+        if capture.attachments.requiresProtection || evidence.requiresProtection || capture.input.contains("\u{FFFC}") {
+            // Clipboard capture does not preserve a trustworthy full rich-text coordinate system.
+            if !capture.clipboard, !capture.selected, let source = capture.fullText,
+               writeAttachmentText(source: source, output: text, to: capture, traceID: diagnostics?.id) { method = "attachment_ranges"; return true }
+            try copyOnly()
+        }
         if capture.clipboard {
             let current = try await ClipboardTransaction.copySelection(selectAll: capture.clipboardWhole, validate: { self.unchanged(capture) })
-            guard current.utf16.elementsEqual(capture.input.utf16), unchanged(capture) else { return false }
-            try await ClipboardTransaction.paste(text, selectAll: capture.clipboardWhole, validate: { self.unchanged(capture) })
+            guard current.utf16.elementsEqual(capture.input.utf16), unchanged(capture) else { failure = "stale_input"; return false }
+            evidence = attachmentEvidence(capture.element, text: attribute(capture.element, kAXValueAttribute) as? String ?? current)
+            if evidence.requiresProtection { try copyOnly() }
+            do {
+                try await ClipboardTransaction.paste(text, selectAll: capture.clipboardWhole, validate: { self.unchanged(capture) && !self.attachmentEvidence(capture.element, text: self.attribute(capture.element, kAXValueAttribute) as? String ?? current).requiresProtection })
+            } catch {
+                evidence = attachmentEvidence(capture.element, text: attribute(capture.element, kAXValueAttribute) as? String ?? current)
+                if evidence.requiresProtection { try copyOnly() }
+                failure = "paste_failed"; throw error
+            }
+            method = "clipboard"
             return true
         }
         if !capture.selected {
             var range = CFRange(location: 0, length: (capture.fullText! as NSString).length)
-            guard let value = AXValueCreate(.cfRange, &range), AXUIElementSetAttributeValue(capture.element, kAXSelectedTextRangeAttribute as CFString, value) == .success else { throw PolishFailure(message: "输入框不允许设置选区，原文没动") }
+            guard let value = AXValueCreate(.cfRange, &range), AXUIElementSetAttributeValue(capture.element, kAXSelectedTextRangeAttribute as CFString, value) == .success else { failure = "selection_rejected"; throw PolishFailure(message: "输入框不允许设置选区，原文没动") }
+        }
+        evidence = attachmentEvidence(capture.element, text: attribute(capture.element, kAXValueAttribute) as? String ?? capture.input)
+        if evidence.requiresProtection {
+            if let original = capture.range {
+                var r = CFRange(location: original.location, length: original.length)
+                if let v = AXValueCreate(.cfRange, &r) { _ = AXUIElementSetAttributeValue(capture.element, kAXSelectedTextRangeAttribute as CFString, v) }
+            }
+            try copyOnly()
         }
         guard AXUIElementSetAttributeValue(capture.element, kAXSelectedTextAttribute as CFString, text as CFString) == .success else {
             // Restore the original selection if AX refused the replacement.
             if !capture.selected, let original = capture.range { var r = CFRange(location: original.location, length: original.length); if let v = AXValueCreate(.cfRange, &r) { _ = AXUIElementSetAttributeValue(capture.element, kAXSelectedTextRangeAttribute as CFString, v) } }
-            throw PolishFailure(message: "输入框拒绝写回，原文没动")
+            failure = "range_write_rejected"; throw PolishFailure(message: "输入框拒绝写回，原文没动")
         }
+        method = "selected_range"
         return true
     }
 }
@@ -155,6 +214,7 @@ struct CapturedInput {
         down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap)
     }
     static func copySelection(selectAll: Bool = false, validate: () -> Bool = { true }) async throws -> String {
+        guard validate() else { throw PolishFailure(message: "输入框已变化") }
         let pb = NSPasteboard.general, saved = snapshot()
         pb.clearContents(); let baseline = pb.changeCount
         var owned = baseline
@@ -175,6 +235,7 @@ struct CapturedInput {
         return text
     }
     static func paste(_ text: String, selectAll: Bool = false, validate: () -> Bool) async throws {
+        guard validate() else { throw PolishFailure(message: "输入框已变化") }
         let pb = NSPasteboard.general, saved = snapshot()
         guard validate() else { throw PolishFailure(message: "输入框已变化，请重新润色") }
         pb.clearContents(); pb.setString(text, forType: .string); let owned = pb.changeCount

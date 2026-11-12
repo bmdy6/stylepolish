@@ -1,7 +1,13 @@
 import AppKit
 import Carbon
+import StylePolishCore
 
 @MainActor final class KeyboardController {
+    private let frontmostBundleID: () -> String?
+    init(frontmostBundleID: @escaping () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }) {
+        self.frontmostBundleID = frontmostBundleID
+    }
+    var targetSupported: Bool { SupportedApps.contains(frontmostBundleID()) }
     private var hotkey: EventHotKeyRef?
     private var probeHotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?
@@ -21,13 +27,14 @@ import Carbon
                 let controller = Unmanaged<KeyboardController>.fromOpaque(context).takeUnretainedValue()
                 var id = EventHotKeyID()
                 if let event { GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &id) }
-                MainActor.assumeIsolated { if id.id == 3 { controller.probe?() } else { controller.trigger?() } }
-                return noErr
+                return MainActor.assumeIsolated { controller.dispatchHotkey(id.id) ? noErr : OSStatus(eventNotHandledErr) }
             }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &handler)
         }
+        let legacyEnabled = legacyEnabled && targetSupported
         if legacyEnabled, hotkey == nil { RegisterEventHotKey(49, UInt32(optionKey), EventHotKeyID(signature: 0x53504F4C, id: 1), GetApplicationEventTarget(), 0, &hotkey) }
         if !legacyEnabled, let old = hotkey { UnregisterEventHotKey(old); hotkey = nil }
-        if probeHotkey == nil { RegisterEventHotKey(35, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x53504F4C, id: 3), GetApplicationEventTarget(), 0, &probeHotkey) }
+        if !targetSupported, let old = probeHotkey { UnregisterEventHotKey(old); probeHotkey = nil }
+        if targetSupported, probeHotkey == nil { RegisterEventHotKey(35, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x53504F4C, id: 3), GetApplicationEventTarget(), 0, &probeHotkey) }
         guard tap == nil else { return }
         tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
             eventsOfInterest: (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) | (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.leftMouseUp.rawValue) | (1 << CGEventType.scrollWheel.rawValue), callback: { _, type, event, context in
@@ -36,6 +43,10 @@ import Carbon
                 return MainActor.assumeIsolated {
                     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                         if let tap = controller.tap { CGEvent.tapEnable(tap: tap, enable: true) }
+                        return Unmanaged.passUnretained(event)
+                    }
+                    guard controller.targetSupported else {
+                        controller.suppressedMouse = false; controller.suppressed.removeAll()
                         return Unmanaged.passUnretained(event)
                     }
                     if type == .scrollWheel { controller.scrolled?(); return Unmanaged.passUnretained(event) }
@@ -56,7 +67,13 @@ import Carbon
             CGEvent.tapEnable(tap: tap, enable: true)
         }
     }
+    @discardableResult func dispatchHotkey(_ id: UInt32) -> Bool {
+        guard targetSupported else { return false }
+        if id == 3 { probe?() } else { trigger?() }
+        return true
+    }
     func consumeKey(type: CGEventType, code: CGKeyCode, flags: CGEventFlags) -> Bool {
+        guard targetSupported else { suppressed.removeAll(); return false }
         if type == .keyUp { return suppressed.remove(code) != nil }
         guard type == .keyDown else { return false }
         if suppressed.contains(code) { return true }

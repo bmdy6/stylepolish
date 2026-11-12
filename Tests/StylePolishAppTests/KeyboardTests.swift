@@ -6,7 +6,7 @@ import StylePolishCore
 
 final class KeyboardTests: XCTestCase {
     @MainActor func testConsumedShortcutKeepsRepeatAndKeyUpTogether() {
-        let keyboard = KeyboardController()
+        let keyboard = KeyboardController(frontmostBundleID: { SupportedApps.wechat })
         var actionable = true, calls = 0
         keyboard.handle = { _, _ in calls += 1; return actionable }
         XCTAssertTrue(keyboard.consumeKey(type: .keyDown, code: 36, flags: .maskAlternate))
@@ -38,7 +38,7 @@ final class KeyboardTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["STYLEPOLISH_UI_TESTS"] == "1" else { throw XCTSkip("Explicit UI opt-in required") }
         _ = NSApplication.shared
         let suite = "StylePolish-key-test-" + UUID().uuidString
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = MemoryDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
         let home = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
         let automatic = AutomaticPolish(access: AccessibilityAccess(), settings: SettingsStore(defaults: defaults, credentialHome: home), history: HistoryStore(directory: home))
