@@ -10,7 +10,7 @@
     ]
   },
   "install": {
-    "url": "https://github.com/bmdy6/style-polish-app/releases/latest",
+    "url": "https://github.com/bmdy6/stylepolish/releases/latest",
     "heading": "安装",
     "label": "GitHub Releases",
     "stepKeywords": [

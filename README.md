@@ -22,7 +22,7 @@ A macOS writing assistant for WeChat only (`com.tencent.xinWeChat`). It polishes
 
 ## 安装
 
-需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/style-polish-app/releases/latest) 下载适合本机架构的 zip，解压后**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。
+需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/stylepolish/releases/latest) 下载适合本机架构的 zip，解压后**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。
 没有 Apple 公证，第一次打开要右键 → 打开；信任来源后也可执行：
 
 ```sh
@@ -32,8 +32,8 @@ xattr -dr com.apple.quarantine /Applications/StylePolish.app
 从源码构建需要 Swift 5.9+（Xcode Command Line Tools）：
 
 ```sh
-git clone https://github.com/bmdy6/style-polish-app
-cd style-polish-app
+git clone https://github.com/bmdy6/stylepolish
+cd stylepolish
 swift test
 scripts/build-app.sh
 ```
