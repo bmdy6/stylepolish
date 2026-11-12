@@ -22,6 +22,16 @@ public enum PolishTextComparison {
     /// Run Core's CharacterDiff on meaningful characters, then map both sides
     /// back to the actual strings. Formatting elsewhere is left untouched.
     public static func edits(source: String, output: String) -> [Suggestion] {
+        guard !key(output).isEmpty else { return [] }
+        let before = source as NSString, after = output as NSString
+        return changes(source: source, output: output).map { change in
+            Suggestion(range: change.before, original: before.substring(with: change.before), replacement: after.substring(with: change.after), kind: .typo, why: "可能是错字")
+        }
+    }
+
+    /// Shared comparison ranges let previews retain both sides without rerunning
+    /// a different diff algorithm or changing the suggestion/writeback contract.
+    static func changes(source: String, output: String) -> [(before: NSRange, after: NSRange)] {
         let old = tokens(source), new = tokens(output)
         func range(_ tokens: [(key: String, range: NSRange)], offset: Int, length: Int) -> NSRange {
             var position = 0, hits: [NSRange] = []
@@ -46,7 +56,6 @@ public enum PolishTextComparison {
             return (previousEnd, previousEnd)
         }
         let oldKey = old.map(\.key).joined(), newKey = new.map(\.key).joined()
-        guard !newKey.isEmpty else { return [] }
         var blocks: [(range: NSRange, replacementLength: Int)] = []
         var offset = 0, start = 0, removed = 0, inserted = 0
         func flush() {
@@ -97,9 +106,7 @@ public enum PolishTextComparison {
             }
             changes.append((oldRange, newRange))
         }
-        return changes.map { change in
-            Suggestion(range: change.before, original: before.substring(with: change.before), replacement: after.substring(with: change.after), kind: .typo, why: "可能是错字")
-        }
+        return changes
     }
 
     public static func insertedRanges(source: String, output: String) -> [NSRange] {

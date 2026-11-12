@@ -1,3 +1,4 @@
+import StylePolishCore
 import XCTest
 @testable import StylePolishApp
 
@@ -8,7 +9,7 @@ final class UnclearLiveTests: XCTestCase {
         guard env["STYLEPOLISH_LIVE"] == "1", let output = env["STYLEPOLISH_UNCLEAR_RESULTS"] else {
             throw XCTSkip("Explicit paid request opt-in and results path required")
         }
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: "org.bmdy6.StylePolish")!)
+        let settings = SettingsStore(defaults: RuntimeStorage.defaults)
         guard settings.credentials.current.source.hasPrefix("ai-vault · ") else { throw PolishFailure(message: "Live acceptance requires ai-vault") }
         let config = PolishConfiguration(base: settings.base, model: "gpt-6-luna", key: settings.credentials.current.key,
             profile: settings.profile, serviceTier: settings.serviceTier, level: settings.level)

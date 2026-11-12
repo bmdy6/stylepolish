@@ -8,11 +8,11 @@ extension AccessibilityAccess {
         var writable: DarwinBoolean = false
         return AXUIElementIsAttributeSettable(element, name as CFString, &writable) == .success && writable.boolValue
     }
-    func automaticCapture(enabled: [String]) -> CapturedInput? {
-        guard Self.trusted(), let (app, element) = focused(), AppWhitelist.contains(app.bundleIdentifier, in: enabled), allowed(element),
+    func automaticCapture() -> CapturedInput? {
+        guard targetSupported, Self.trusted(), let (app, element) = focused(), allowed(element),
               let text = attribute(element, kAXValueAttribute) as? String, text.utf8.count <= 100_000 else { return nil }
         guard Self.supportsAutomaticWrite(value: settable(element, kAXValueAttribute), selectedText: settable(element, kAXSelectedTextAttribute), range: settable(element, kAXSelectedTextRangeAttribute)) else { return nil }
-        return CapturedInput(pid: app.processIdentifier, bundleID: app.bundleIdentifier ?? "", appName: app.localizedName ?? "App", element: element, input: text, fullText: text, range: selection(element), selected: false, clipboard: false, bounds: bounds(element))
+        return CapturedInput(pid: app.processIdentifier, bundleID: app.bundleIdentifier ?? "", appName: app.localizedName ?? "App", element: element, input: text, fullText: text, range: selection(element), selected: false, clipboard: false, bounds: bounds(element), attachments: attachmentEvidence(element, text: text))
     }
     func rangeBounds(_ range: NSRange, in element: AXUIElement) -> CGRect? {
         var r = CFRange(location: range.location, length: range.length)
@@ -26,21 +26,29 @@ extension AccessibilityAccess {
         return rect
     }
     func isCurrent(_ capture: CapturedInput, text: String) -> Bool {
-        guard let (app, element) = focused(), app.processIdentifier == capture.pid, CFEqual(capture.element, element), allowed(element) else { return false }
+        guard supports(capture.bundleID), let (app, element) = focused(), app.processIdentifier == capture.pid, CFEqual(capture.element, element), allowed(element) else { return false }
         guard let current = attribute(element, kAXValueAttribute) as? String else { return false }
         return current.utf16.elementsEqual(text.utf16)
     }
-    func writeSuggestion(_ suggestion: Suggestion, source: String, to capture: CapturedInput) -> Bool {
+    func writeSuggestion(_ suggestion: Suggestion, source: String, to capture: CapturedInput, traceID: String? = nil, methodReported: (String) -> Void = { _ in }) -> Bool {
         guard isCurrent(capture, text: source), suggestion.matches(source) else { return false }
+        let evidence = attachmentEvidence(capture.element, text: source)
+        if capture.attachments.requiresProtection || evidence.requiresProtection || source.contains("\u{FFFC}") {
+            let output = (source as NSString).replacingCharacters(in: suggestion.range, with: suggestion.replacement)
+            methodReported("attachment_ranges")
+            return writeAttachmentText(source: source, output: output, to: capture, traceID: traceID)
+        }
         let expected = (source as NSString).replacingCharacters(in: suggestion.range, with: suggestion.replacement)
         if !settable(capture.element, kAXSelectedTextAttribute) || !settable(capture.element, kAXSelectedTextRangeAttribute) {
+            methodReported("whole_value")
             guard settable(capture.element, kAXValueAttribute), isCurrent(capture, text: source),
                   AXUIElementSetAttributeValue(capture.element, kAXValueAttribute as CFString, expected as CFString) == .success else { return false }
             let current = attribute(capture.element, kAXValueAttribute) as? String
             let succeeded = current?.utf16.elementsEqual(expected.utf16) == true
-            Diagnostics.shared.record(DiagnosticEvent(event: "whole_value_write", bundleID: capture.bundleID, readable: current != nil, error: succeeded ? nil : "write_readback_mismatch"))
+            Diagnostics.shared.record(DiagnosticEvent(event: "whole_value_write", bundleID: capture.bundleID, readable: current != nil, hasAttachment: false, writeMethod: "whole_value", traceID: traceID, error: succeeded ? nil : "write_readback_mismatch"))
             return succeeded
         }
+        methodReported("selected_range")
         let oldSelection = selection(capture.element)
         var range = CFRange(location: suggestion.range.location, length: suggestion.range.length)
         guard let value = AXValueCreate(.cfRange, &range), AXUIElementSetAttributeValue(capture.element, kAXSelectedTextRangeAttribute as CFString, value) == .success else { return false }

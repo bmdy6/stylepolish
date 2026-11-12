@@ -7,6 +7,17 @@ enum InputIndicatorState: Equatable {
     static func completed(count: Int, unclear: Bool) -> Self {
         count > 0 ? .suggestions(count) : (unclear ? .unclear : .clean)
     }
+    var diagnosticName: String {
+        switch self {
+        case .watching: return "watching"
+        case .checking: return "checking"
+        case .clean: return "clean"
+        case .unclear: return "unclear"
+        case .suggestions: return "suggestions"
+        case .warning: return "warning"
+        case .modelFailure: return "model_failure"
+        }
+    }
     var help: String {
         switch self {
         case .watching: return "已启用，正在看"
@@ -64,6 +75,7 @@ struct IndicatorView: View {
     private(set) var state: InputIndicatorState?
     private var fade: Task<Void, Never>?
     var click: (() -> Void)?
+    var didShow: ((InputIndicatorState, Bool) -> Void)?
     private var transition: Task<Void, Never>?
     private var pending: InputIndicatorState?
     private var latestBounds: CGRect?
@@ -99,6 +111,7 @@ struct IndicatorView: View {
         fade?.cancel(); state = next; panel.alphaValue = 1
         panel.contentView = NSHostingView(rootView: IndicatorView(state: next, click: { [weak self] in self?.click?() }))
         panel.orderFrontRegardless()
+        didShow?(next, rawField != nil)
         if next == .clean {
             fade = Task { [weak self] in
                 do { try await Task.sleep(nanoseconds: 1_000_000_000); try Task.checkCancellation() } catch { return }

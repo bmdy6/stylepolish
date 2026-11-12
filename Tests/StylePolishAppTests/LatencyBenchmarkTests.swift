@@ -7,7 +7,7 @@ final class LatencyBenchmarkTests: XCTestCase {
     @MainActor func testBenchmark() async throws {
         let env = ProcessInfo.processInfo.environment
         guard let output = env["STYLEPOLISH_BENCHMARK_OUTPUT"] else { throw XCTSkip("Explicit paid benchmark opt-in required") }
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: "org.bmdy6.StylePolish")!)
+        let settings = SettingsStore(defaults: RuntimeStorage.defaults)
         var config = PolishConfiguration(base: settings.base, model: settings.model, key: settings.credentials.current.key, profile: settings.profile, serviceTier: settings.serviceTier)
         if env["STYLEPOLISH_BENCHMARK_DEFAULT_EFFORT"] == "1" { config.reasoningEffort = nil }
         let samples = [

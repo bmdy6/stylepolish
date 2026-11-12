@@ -6,9 +6,10 @@ import StylePolishCore
 @MainActor enum InputProbe {
     // Explicit CLI-only acceptance: read an existing field, never focus/type/copy/write.
     static func modelCheck(access: AccessibilityAccess, target: NSRunningApplication, config: PolishConfiguration) async throws {
+        guard SupportedApps.contains(target.bundleIdentifier) else { throw PolishFailure(message: "目前只支持微信") }
         let root = AXUIElementCreateApplication(target.processIdentifier)
         var candidates: [AXUIElement] = []
-        if target.bundleIdentifier != "com.google.Chrome", let raw = access.attribute(root, kAXFocusedUIElementAttribute), CFGetTypeID(raw) == AXUIElementGetTypeID() {
+        if let raw = access.attribute(root, kAXFocusedUIElementAttribute), CFGetTypeID(raw) == AXUIElementGetTypeID() {
             candidates.append(unsafeBitCast(raw, to: AXUIElement.self))
         }
         if let windows = access.attribute(root, kAXWindowsAttribute) as? [AXUIElement] { candidates += windows }
@@ -18,11 +19,6 @@ import StylePolishCore
             let element = candidates.removeFirst(); count += 1
             guard visited.insert(CFHash(element)).inserted else { continue }
             let role = access.attribute(element, kAXRoleAttribute) as? String
-            if target.bundleIdentifier == "com.google.Chrome", role == "AXWebArea" {
-                let rawURL = access.attribute(element, "AXURL")
-                let url = (rawURL as? URL) ?? (rawURL as? String).flatMap(URL.init(string:))
-                guard let host = url?.host, host == "linear.app" || host.hasSuffix(".linear.app") else { continue }
-            }
             if role == kAXTextAreaRole, access.allowed(element), access.attribute(element, kAXValueAttribute) is String, access.settable(element, kAXValueAttribute) || access.settable(element, kAXSelectedTextAttribute) {
                 field = element; break
             }
@@ -37,6 +33,7 @@ import StylePolishCore
         guard unchanged else { throw PolishFailure(message: "输入框在测试期间发生变化") }
     }
     static func write(access: AccessibilityAccess, target: NSRunningApplication? = nil) throws -> URL {
+        guard SupportedApps.contains((target ?? NSWorkspace.shared.frontmostApplication)?.bundleIdentifier) else { throw PolishFailure(message: "目前只支持微信") }
         let focus: (NSRunningApplication, AXUIElement)?
         if let target, let raw = access.attribute(AXUIElementCreateApplication(target.processIdentifier), kAXFocusedUIElementAttribute), CFGetTypeID(raw) == AXUIElementGetTypeID() {
             focus = (target, unsafeBitCast(raw, to: AXUIElement.self))

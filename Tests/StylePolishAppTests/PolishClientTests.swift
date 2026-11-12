@@ -1,4 +1,5 @@
 import XCTest
+import StylePolishCore
 @testable import StylePolishApp
 
 final class PolishClientTests: XCTestCase {
@@ -62,6 +63,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
    self.send_response(400);self.end_headers();self.wfile.write(json.dumps({'error':{'code':'unknown_parameter','param':'bad_param','message':'Unknown parameter and '+self.headers['Authorization']}}).encode());return
   if mode=='missing400':
    self.send_response(400);self.end_headers();self.wfile.write(json.dumps({'error':{'code':'model_not_found','message':'do not show raw server messages'}}).encode());return
+  if mode=='quota':
+   self.send_response(400);self.end_headers();self.wfile.write(b'{"error":{"code":"insufficient_quota"}}');return
   if mode=='missing':self.send_response(404);self.end_headers();return
   if mode=='limited':self.send_response(429);self.end_headers();return
   if mode=='invalid':self.send_response(401);self.end_headers();return
@@ -116,6 +119,28 @@ s.serve_forever()
         XCTAssertEqual(body["reasoning_effort"] as? String, "none")
         XCTAssertEqual((body["stream_options"] as? [String: Bool])?["include_usage"], true)
         XCTAssertEqual(body["service_tier"] as? String, "priority")
+    }
+    func testDeepSeekRequestsDisableThinking() throws {
+        for model in ["deepseek-flash", "deepseek-chat", "deepseek-reasoner"] {
+            for structured in [false, true] {
+                let config = PolishConfiguration(base: base, model: model, key: "synthetic-test-value", profile: "", serviceTier: "", level: .strict)
+                let request = try PolishClient().makeRequest("这个方案非长好。", config: config, structured: structured)
+                let body = try XCTUnwrap(JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+                XCTAssertEqual(body["thinking"] as? [String: String], ["type": "disabled"], model)
+                XCTAssertNil(body["reasoning_effort"], model)
+            }
+        }
+    }
+    func testOtherModelsOmitThinkingAndPreserveLunaReasoningEffort() throws {
+        for model in ["gpt-6-luna", "gpt-6-luna-preview", "gpt-4.1", "synthetic", "vendor/deepseek-flash"] {
+            for effort: String? in ["none", "low", nil] {
+                let config = PolishConfiguration(base: base, model: model, key: "synthetic-test-value", profile: "", reasoningEffort: effort)
+                let request = try PolishClient().makeRequest("测试", config: config, structured: true)
+                let body = try XCTUnwrap(JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+                XCTAssertNil(body["thinking"], model)
+                XCTAssertEqual(body["reasoning_effort"] as? String, model.hasPrefix("gpt-6-luna") ? effort : nil, model)
+            }
+        }
     }
     func testRealHTTPStreamingAndMissingProfile() async throws {
         let result = try await PolishClient().polish("你好", config: PolishConfiguration(base: base, model: "success", key: "synthetic-test-value", profile: "/nonexistent/style-polish-profile.md")) { _ in }
@@ -198,6 +223,83 @@ s.serve_forever()
         let start = Date(); request.cancel()
         do { _ = try await request.value; XCTFail("Cancelled request returned suggestions") } catch {}
         XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+    }
+
+    func testHTTPMetadataDrivesLocalFallback() async throws {
+        for (model, reason) in [("invalid", FallbackReason.key), ("forbidden", .key), ("limited", .quota), ("quota", .quota), ("missing", .other)] {
+            let config = PolishConfiguration(base: base, model: model, key: "synthetic-test-value", profile: "")
+            let result = try await CheckEngine().check("我因该回复", engine: .ai, config: config)
+            XCTAssertEqual(result.fallback, reason, model)
+            XCTAssertEqual(result.suggestions.first?.replacement, "应该")
+        }
+    }
+
+    @MainActor func testDiagnosticMetricsCoverHTTPFailureAndSuccessfulUsage() async throws {
+        var metrics: [RequestMetrics] = []
+        let bad = PolishConfiguration(base: base, model: "invalid", key: "synthetic-test-value", profile: "")
+        let fallback = try await CheckEngine().check("我因该回复", engine: .ai, config: bad, metrics: { metrics.append($0) })
+        XCTAssertEqual(fallback.fallback, .key)
+        XCTAssertEqual(metrics.count, 1)
+        XCTAssertEqual(metrics[0].httpStatus, 401)
+        XCTAssertEqual(metrics[0].errorCategory, "http")
+        metrics = []
+        _ = try await PolishClient().polish("好", config: PolishConfiguration(base: base, model: "usage", key: "synthetic-test-value", profile: ""), metrics: { metrics.append($0) }) { _ in }
+        XCTAssertEqual(metrics.count, 1)
+        XCTAssertEqual(metrics[0].httpStatus, 200)
+        XCTAssertEqual(metrics[0].completionTokens, 100)
+        XCTAssertNil(metrics[0].errorCategory)
+    }
+    @MainActor func testInvalidStructuredResponseEmitsOneValidationMetric() async throws {
+        var metrics: [RequestMetrics] = []
+        let result = try await CheckEngine().check("我因该回复", engine: .ai, config: PolishConfiguration(base: base, model: "success", key: "synthetic-test-value", profile: ""), metrics: { metrics.append($0) })
+        XCTAssertEqual(result.fallback, .other)
+        XCTAssertEqual(metrics.count, 1)
+        XCTAssertEqual(metrics[0].httpStatus, 200)
+        XCTAssertEqual(metrics[0].errorCategory, "response_validation")
+        XCTAssertNotNil(metrics[0].modelResponse)
+    }
+    @MainActor func testMissingKeyAndCancelledRequestHaveDiagnosticCategories() async throws {
+        var metrics: [RequestMetrics] = []
+        _ = try await CheckEngine().check("我因该回复", engine: .ai, config: PolishConfiguration(base: base, model: "success", key: "", profile: ""), metrics: { metrics.append($0) })
+        XCTAssertEqual(metrics.count, 1); XCTAssertNil(metrics[0].httpStatus)
+        XCTAssertEqual(metrics[0].errorCategory, "missing_key")
+        metrics = []
+        let task = Task {
+            try await PolishClient().polish("测试", config: PolishConfiguration(base: base, model: "slow", key: "synthetic-test-value", profile: ""), metrics: { metrics.append($0) }) { _ in }
+        }
+        try await Task.sleep(nanoseconds: 50_000_000); task.cancel()
+        _ = try? await task.value
+        XCTAssertEqual(metrics.count, 1)
+        XCTAssertEqual(metrics[0].errorCategory, "cancelled")
+    }
+
+    @MainActor func testFullAIFlowSharesTraceThroughRequestAndWriteWithoutBody() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let log = Diagnostics(directory: root)
+        log.configure(debug: false, secrets: ["synthetic-test-value"])
+        let trace = DiagnosticTrace(bundleID: "synthetic", log: log)
+        var editor = "非长好。"
+        let source = editor
+        trace.capture(text: editor, role: "AXTextArea", writable: true, selection: nil, attachment: .plain, hasPosition: false)
+        trace.started(engine: .ai, level: .standard, cacheHit: false)
+        let result = try await CheckEngine().check(editor, engine: .ai, config: PolishConfiguration(base: base, model: "structured", key: "synthetic-test-value", profile: ""), metrics: { trace.metrics($0, model: "structured") })
+        trace.result(source: source, suggestions: result.suggestions, engine: .ai, fallback: result.fallback, unclear: result.unclear, requestMS: 1, resultMS: 1)
+        let preview = try XCTUnwrap(SuggestionPreview(source: source, edits: result.suggestions))
+        trace.presented("preview_bar", mode: preview.mode.rawValue, hasPosition: false, count: result.suggestions.count)
+        trace.action("accept_all", count: result.suggestions.count)
+        let writer = SuggestionWriter(isCurrent: { editor == $0 }, writeAX: { editor = preview.output; return true }, paste: { _, _ in XCTFail("No paste") })
+        let outcome = await writer.write(source: source, output: preview.output, valid: { true })
+        XCTAssertTrue(outcome.confirmed)
+        trace.write(source: source, expected: preview.output, readback: editor, method: "selected_range", attachment: .plain)
+        log.flush()
+        let json = try String(contentsOf: log.url)
+        let rows = try json.split(separator: "\n").map { try JSONSerialization.jsonObject(with: Data($0.utf8)) as! [String: Any] }
+        XCTAssertEqual(rows.compactMap { $0["event"] as? String }, ["capture", "check_started", "request_metrics", "result", "preview_shown", "user_action", "write"])
+        XCTAssertEqual(Set(rows.compactMap { $0["traceID"] as? String }), [trace.id])
+        XCTAssertEqual(rows[2]["httpStatus"] as? Int, 200)
+        XCTAssertEqual(rows.last?["readbackMatches"] as? Bool, true)
+        XCTAssertFalse(json.contains(source)); XCTAssertFalse(json.contains(preview.output)); XCTAssertFalse(json.contains("synthetic-test-value"))
     }
 
 }

@@ -14,6 +14,14 @@ final class NoKeychainTests: XCTestCase {
                 XCTAssertTrue(source.contains(capture))
                 source = source.replacingOccurrences(of: capture, with: "")
             }
+            // Only fixed diagnostic zip creation / read-only code signature inspection may launch processes.
+            if file.lastPathComponent == "Diagnostics.swift" || file.lastPathComponent == "DiagnosticEnvironment.swift" {
+                let executable = file.lastPathComponent == "Diagnostics.swift" ? "/usr/bin/ditto" : "/usr/bin/codesign"
+                let declaration = "let process = Process(); process.executableURL = URL(fileURLWithPath: \"\(executable)\")"
+                XCTAssertEqual(source.components(separatedBy: "Process()").count - 1, 1)
+                XCTAssertTrue(source.contains(declaration))
+                source = source.replacingOccurrences(of: declaration, with: "")
+            }
             XCTAssertNil(source.range(of: forbidden, options: .regularExpression), file.lastPathComponent)
         }
     }

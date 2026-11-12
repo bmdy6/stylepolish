@@ -6,10 +6,11 @@ public func postprocess(_ text: String) -> String {
     return result
 }
 
-public enum AppWhitelist {
-    public static func contains(_ bundleID: String?, in enabled: [String]) -> Bool {
-        guard let bundleID else { return false }; return enabled.contains(bundleID)
-    }
+/// Product boundary shared by automatic checks, shortcuts and diagnostics.
+public enum SupportedApps {
+    public static let wechat = "com.tencent.xinWeChat"
+    public static let all = [wechat]
+    public static func contains(_ bundleID: String?) -> Bool { bundleID == wechat }
 }
 
 public struct FocusSnapshot: Equatable {
@@ -98,7 +99,31 @@ public struct HistoryEntry: Encodable {
 public final class HistoryStore {
     public let directory: URL
     public var file: URL { directory.appendingPathComponent("history.jsonl") }
-    public init(directory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("StylePolish")) { self.directory = directory }
+    public var overridesFile: URL { directory.appendingPathComponent("habits-overrides.json") }
+    public private(set) var habits = HabitProfile()
+    public var habitsChanged: (() -> Void)?
+    public init(directory: URL = RuntimeStorage.history) {
+        self.directory = directory
+        // One startup scan, tolerant of mixed v1/v2 and damaged rows.
+        if let data = try? Data(contentsOf: file) {
+            for line in data.split(separator: 0x0A) { habits.ingest(line: Data(line)) }
+        }
+        if let data = try? Data(contentsOf: overridesFile), let ids = try? JSONDecoder().decode(Set<String>.self, from: data) { habits.excludedIDs = ids }
+    }
+    public func setHabit(_ id: String, deleted: Bool) throws {
+        var ids = habits.excludedIDs
+        if deleted { ids.insert(id) } else { ids.remove(id) }
+        try prepare()
+        // Set permissions on the staging file before atomic replacement; no public-readable interval.
+        let temporary = directory.appendingPathComponent(".habits-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        guard FileManager.default.createFile(atPath: temporary.path, contents: try JSONEncoder().encode(ids), attributes: [.posixPermissions: 0o600]) else { throw CocoaError(.fileWriteUnknown) }
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: overridesFile.path, isDirectory: &isDirectory), isDirectory.boolValue { throw CocoaError(.fileWriteInvalidFileName) }
+        if FileManager.default.fileExists(atPath: overridesFile.path) { _ = try FileManager.default.replaceItemAt(overridesFile, withItemAt: temporary, options: .usingNewMetadataOnly) }
+        else { try FileManager.default.moveItem(at: temporary, to: overridesFile) }
+        habits.excludedIDs = ids; habitsChanged?()
+    }
     public func prepare() throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         if !FileManager.default.fileExists(atPath: file.path) {
@@ -111,10 +136,16 @@ public final class HistoryStore {
         var data = try JSONEncoder().encode(entry); data.append(0x0A)
         let handle = try FileHandle(forWritingTo: file); defer { try? handle.close() }
         try handle.seekToEnd(); try handle.write(contentsOf: data); try handle.synchronize()
+        if let event = entry as? SuggestionEvent {
+            habits.ingest(event)
+            if event.action == .accept || event.action == .ignore { habitsChanged?() }
+        }
     }
     public func clear() throws {
         try prepare(); let handle = try FileHandle(forWritingTo: file); defer { try? handle.close() }
         try handle.truncate(atOffset: 0)
+        defer { habits = HabitProfile(); habitsChanged?() }
+        if FileManager.default.fileExists(atPath: overridesFile.path) { try FileManager.default.removeItem(at: overridesFile) }
     }
 }
 

@@ -24,7 +24,7 @@ import StylePolishCore
             let url = URL(fileURLWithPath: directory)
             try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
             let suite = "org.bmdy6.StylePolish.latency." + UUID().uuidString
-            let defaults = UserDefaults(suiteName: suite)!
+            let defaults = MemoryDefaults()
             let history = HistoryStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent(suite))
             var fixture: NSRunningApplication?
             defer {
@@ -33,7 +33,7 @@ import StylePolishCore
                 try? FileManager.default.removeItem(at: history.directory)
             }
             do {
-                let access = AccessibilityAccess()
+                let access = AccessibilityAccess(testingApp: Bundle.main.bundleIdentifier ?? "")
                 let live = SettingsStore()
                 let config = PolishConfiguration(base: live.base, model: live.model, key: live.credentials.current.key, profile: live.profile, serviceTier: live.serviceTier)
                 let warmStart = Date()
@@ -52,7 +52,7 @@ import StylePolishCore
                 var readyCapture: CapturedInput?
                 while Date().timeIntervalSince(readyStart) < 4 {
                     if NSWorkspace.shared.frontmostApplication?.processIdentifier == fixture.processIdentifier,
-                       let capture = access.automaticCapture(enabled: [fixture.bundleIdentifier ?? ""]), capture.input == source {
+                       let capture = access.automaticCapture(), capture.input == source {
                         readyCapture = capture; break
                     }
                     try await Task.sleep(nanoseconds: 50_000_000)
@@ -63,9 +63,11 @@ import StylePolishCore
                 }
                 lines.append("fixture-ready-ms=\(Int(Date().timeIntervalSince(readyStart) * 1000))")
                 let settings = SettingsStore(defaults: defaults)
-                settings.apps = [fixture.bundleIdentifier ?? ""]
                 let automatic = AutomaticPolish(access: access, settings: settings, history: history)
-                let keyboard = KeyboardController()
+                // Map only the foreground fixture into the keyboard policy; never another app.
+                let keyboard = KeyboardController(frontmostBundleID: {
+                    NSWorkspace.shared.frontmostApplication?.processIdentifier == fixture.processIdentifier ? SupportedApps.wechat : nil
+                })
                 keyboard.handle = { code, flags in automatic.key(code, flags) }
                 keyboard.start()
                 defer { withExtendedLifetime(keyboard) {} }
@@ -93,7 +95,7 @@ import StylePolishCore
                     lines.append("screenshot-exit=\(shotStatus)")
                 } else { lines.append("screenshot-skipped=explicit-headless-retest") }
                 // A synthetic typing event exercises the real event tap; never target
-                // WeChat/Linear. Verify focus remains in this fixture first.
+                // real apps. Verify focus remains in this fixture first.
                 if access.isCurrent(capture, text: source) {
                     let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true)
                     var chars = Array("啊".utf16)
@@ -110,7 +112,7 @@ import StylePolishCore
                 let cachedStart = Date(); complete = false
                 automatic.sample(force: true)
                 while !complete, Date().timeIntervalSince(cachedStart) < 3 { try await Task.sleep(nanoseconds: 10_000_000) }
-                lines += ["cache-complete=\(complete)", "cache-ms=\(Int(Date().timeIntervalSince(cachedStart) * 1000))", "cache-hits=\(cacheHits)", "WeChat-Linear-writes=0"]
+                lines += ["cache-complete=\(complete)", "cache-ms=\(Int(Date().timeIntervalSince(cachedStart) * 1000))", "cache-hits=\(cacheHits)", "real-app-writes=0"]
                 if automatic.overlay.previewVisible, access.isCurrent(capture, text: source) {
                     CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: true)?.post(tap: .cghidEventTap)
                     CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: false)?.post(tap: .cghidEventTap)

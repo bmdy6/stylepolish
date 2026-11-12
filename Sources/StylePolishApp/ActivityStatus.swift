@@ -1,12 +1,15 @@
 import Foundation
 
 enum ActivityStatus: Equatable {
-    case disabled, idle, checking, unclear, suggestions(Int), failure(String)
+    case trial(Int), disabled, idle, checking, unclear, suggestions(Int), failure(String), fallback(FallbackReason), local
     static func completed(count: Int, unclear: Bool) -> Self {
         count > 0 ? .suggestions(count) : (unclear ? .unclear : .idle)
     }
     var title: String {
         switch self {
+        case .fallback(let reason): return reason.title
+        case .trial(let percent): return "试用 \(percent)%"
+        case .local: return "本地规则"
         case .disabled: return "未启用此 App"
         case .idle: return "空闲"
         case .unclear: return "读不通"
@@ -23,6 +26,9 @@ enum ActivityStatus: Equatable {
         case .unclear: return "questionmark.circle"
         case .checking: return "ellipsis.circle"
         case .suggestions: return "text.badge.plus"
+        case .trial: return "text.badge.checkmark"
+        case .local: return "text.badge.checkmark"
+        case .fallback: return "exclamationmark.triangle"
         case .failure: return "exclamationmark.triangle"
         }
     }
