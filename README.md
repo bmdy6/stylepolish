@@ -1,5 +1,7 @@
 # <img src="docs/images/icon-256.png" width="64" alt="StylePolish 图标" /> StylePolish
 
+[![GitHub stars](https://img.shields.io/github/stars/bmdy6/stylepolish?style=social)](https://github.com/bmdy6/stylepolish) 觉得有用的话，点右上角 ⭐ Star 支持一下。
+
 A macOS writing assistant that polishes text while keeping your voice; you stay in control of sending. WeChat is enabled by default. You can enable other apps in Settings; writeback may fail in unverified apps. Automatic checks and shortcuts only run in enabled apps.
 
 默认在 macOS 微信里使用（`com.tencent.xinWeChat`），其他 App 可以在设置里打开（未验证的可能写回失败）。停笔后帮你润色，保留你的口吻，发送仍由你自己按。自动检查、快捷键和写回只针对已启用的 App。
@@ -90,9 +92,10 @@ scripts/build-app.sh
 
 ## 宣传片素材
 
-- 背景音乐：[Upbeat Corporate](https://www.jamendo.com/track/1670486) — Soundrider/Dope，CC BY
+- 背景音乐：Arcade Aroma — Touda（Freesound，CC0）
+- 音效：自制
 - 配音：Microsoft Edge 在线音色 Xiaoyi（经 [edge-tts](https://github.com/rany2/edge-tts)）
-- 画面：自制动画，聊天窗口为通用示意
+- 画面：自制动画，聊天窗口为通用示意；「本周表达报告」里的数字为示意数据
 
 ## 许可证
 
