@@ -13,7 +13,7 @@ mv -f "$APP/Contents/MacOS/StylePolish.new" "$APP/Contents/MacOS/StylePolish"
 # Distribute the executable without local DWARF/debug paths.
 strip -S "$APP/Contents/MacOS/StylePolish"
 # Copy resources into the standard app location; do not ship build-machine paths.
-cp Sources/StylePolishCore/Resources/local-typos.json Sources/StylePolishCore/Resources/habit-tips.json "$APP/Contents/Resources/"
+cp Sources/StylePolishCore/Resources/local-typos.json Sources/StylePolishCore/Resources/habit-tips.json Sources/StylePolishCore/Resources/apps.json "$APP/Contents/Resources/"
 cp -R Sources/StylePolishApp/Resources/prompts "$APP/Contents/Resources/"
 ICON="Sources/StylePolishApp/Resources/AppIcon.icns"
 if [ -f "$ICON" ]; then
@@ -35,7 +35,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>StylePolish</string>
 <key>CFBundleExecutable</key><string>StylePolish</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.5.0</string>
+<key>CFBundleShortVersionString</key><string>0.6.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>StylePolishCommit</key><string>source</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>

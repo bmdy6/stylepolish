@@ -60,7 +60,7 @@ esac
             self.assertEqual(result.returncode, 0, result.stderr)
             app = root / 'dist/StylePolish.app/Contents'
             info = plistlib.loads((app / 'Info.plist').read_bytes())
-            self.assertEqual(info['CFBundleShortVersionString'], '0.5.0')
+            self.assertEqual(info['CFBundleShortVersionString'], '0.6.0')
             self.assertTrue((app / 'Resources/prompts/polish.md').exists())
             self.assertTrue((app / 'Resources/local-typos.json').exists())
             self.assertEqual((app / 'Resources/habit-tips.json').read_text(), '{"在/再":"synthetic tip"}')

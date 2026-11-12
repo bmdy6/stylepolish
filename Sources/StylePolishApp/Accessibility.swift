@@ -18,6 +18,8 @@ struct CapturedInput {
 }
 
 @MainActor final class AccessibilityAccess {
+    let supportedApps: SupportedApps
+    private var activatedPID: pid_t?
     private let frontmostApplication: () -> NSRunningApplication?
     private var pendingFallback: (pid_t, AXUIElement)?
     private(set) var fallbackApps = Set<String>()
@@ -26,20 +28,42 @@ struct CapturedInput {
     private var testingApp: String?
     init(testingApp: String) {
         precondition(testingApp == "org.bmdy6.StylePolish" || testingApp.hasPrefix("org.bmdy6.StylePolish."))
+        self.supportedApps = SupportedApps()
         self.testingApp = testingApp
         self.frontmostApplication = { NSWorkspace.shared.frontmostApplication }
     }
     #endif
-    init(frontmostApplication: @escaping () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }) {
+    init(supportedApps: SupportedApps = SupportedApps(), frontmostApplication: @escaping () -> NSRunningApplication? = { NSWorkspace.shared.frontmostApplication }) {
+        self.supportedApps = supportedApps
         self.frontmostApplication = frontmostApplication
     }
     func supports(_ bundleID: String?) -> Bool {
         #if DEBUG
         if let testingApp { return bundleID == testingApp }
         #endif
-        return SupportedApps.contains(bundleID)
+        return supportedApps.isEnabled(bundleID)
+    }
+    func activationAttribute(bundleID: String) -> String? {
+        supports(bundleID) ? supportedApps.app(bundleID)?.axActivation : nil
+    }
+    func activateAccessibility(for app: NSRunningApplication) {
+        guard frontmostApplication()?.processIdentifier == app.processIdentifier,
+              let id = app.bundleIdentifier, let name = activationAttribute(bundleID: id) else { return }
+        guard activatedPID != app.processIdentifier else { return }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(element, 0.3)
+        let result = AXUIElementSetAttributeValue(element, name as CFString, kCFBooleanTrue)
+        if result == .success { activatedPID = app.processIdentifier }
+        Diagnostics.shared.record(DiagnosticEvent(event: "ax_activation", bundleID: id, axAttribute: name, axResult: result.rawValue, error: result == .success ? nil : "ax_set_failed"))
     }
     var targetSupported: Bool { supports(frontmostApplication()?.bundleIdentifier) }
+    func isForeground(_ capture: CapturedInput) -> Bool {
+        guard let app = frontmostApplication() else { return false }
+        return matchesForeground(capture, bundleID: app.bundleIdentifier, pid: app.processIdentifier)
+    }
+    func matchesForeground(_ capture: CapturedInput, bundleID: String?, pid: pid_t) -> Bool {
+        supports(capture.bundleID) && bundleID == capture.bundleID && pid == capture.pid
+    }
     func useClipboard(for bundleID: String) {
         guard supports(bundleID) else { return }
         fallbackApps.insert(bundleID)
@@ -52,8 +76,9 @@ struct CapturedInput {
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
     }
     func focused() -> (NSRunningApplication, AXUIElement)? {
-        guard let app = frontmostApplication(), supports(app.bundleIdentifier),
-              let element = attribute(AXUIElementCreateApplication(app.processIdentifier), kAXFocusedUIElementAttribute),
+        guard let app = frontmostApplication(), supports(app.bundleIdentifier) else { return nil }
+        activateAccessibility(for: app)
+        guard let element = attribute(AXUIElementCreateApplication(app.processIdentifier), kAXFocusedUIElementAttribute),
               CFGetTypeID(element) == AXUIElementGetTypeID(),
               frontmostApplication()?.processIdentifier == app.processIdentifier else { return nil }
         return (app, unsafeBitCast(element, to: AXUIElement.self))
@@ -80,14 +105,14 @@ struct CapturedInput {
         return bounds(unsafeBitCast(raw, to: AXUIElement.self))
     }
     func capture(forceWholeClipboard: Bool = false) async throws -> CapturedInput {
-        guard targetSupported else { throw PolishFailure(message: "目前只支持微信") }
+        guard targetSupported else { throw PolishFailure(message: "这个 App 未启用") }
         guard Self.trusted() else { throw PolishFailure(message: "没有辅助功能权限，请在设置中授权") }
         guard let (app, element) = focused() else { throw PolishFailure(message: "找不到当前输入框") }
         guard allowed(element) else { throw PolishFailure(message: "只支持普通文字输入框，不读取密码框") }
         let selectedText = attribute(element, kAXSelectedTextAttribute) as? String ?? ""
         let fullText = attribute(element, kAXValueAttribute) as? String
         var range = selection(element)
-        let wholeClipboard = forceWholeClipboard || app.bundleIdentifier == SupportedApps.wechat
+        let wholeClipboard = forceWholeClipboard || supportedApps.app(app.bundleIdentifier)?.clipboardWhole == true
         var input = selectedText.isEmpty ? (fullText ?? "") : selectedText
         let fallback = wholeClipboard || (input.isEmpty && fullText == nil)
         if fallback {
@@ -112,7 +137,7 @@ struct CapturedInput {
         return CapturedInput(pid: app.processIdentifier, bundleID: app.bundleIdentifier ?? "", appName: app.localizedName ?? "App", element: element, input: input, fullText: fallback ? nil : fullText, range: range, selected: !selectedText.isEmpty || fallback, clipboard: fallback, bounds: bounds(element), clipboardWhole: wholeClipboard, attachments: attachmentEvidence(element, text: fullText ?? input))
     }
     func snapshot(_ capture: CapturedInput) -> FocusSnapshot? {
-        guard supports(capture.bundleID), let (app, element) = focused(), allowed(element) else { return nil }
+        guard isForeground(capture), let (app, element) = focused(), allowed(element) else { return nil }
         let text = capture.clipboard ? nil : attribute(element, kAXValueAttribute) as? String
         let selected = capture.clipboard ? nil : attribute(element, kAXSelectedTextAttribute) as? String
         return FocusSnapshot(pid: app.processIdentifier, element: CFEqual(element, capture.element) ? "original" : "different", text: text ?? selected ?? "", selection: selection(element))
@@ -124,7 +149,7 @@ struct CapturedInput {
     }
     // Returns false for stale input. Caller copies result, with no field writes.
     func write(_ text: String, to capture: CapturedInput, diagnostics: DiagnosticTrace? = nil) async throws -> Bool {
-        guard supports(capture.bundleID), targetSupported else { throw PolishFailure(message: "目前只支持微信") }
+        guard isForeground(capture) else { throw PolishFailure(message: "这个 App 未启用") }
         let source = capture.fullText ?? capture.input
         let expected: String
         if capture.selected, let range = capture.range, let full = capture.fullText, NSMaxRange(range) <= full.utf16.count {
@@ -143,7 +168,7 @@ struct CapturedInput {
             Diagnostics.shared.record(DiagnosticEvent(event: "manual_write", bundleID: capture.bundleID, hasAttachment: evidence.hasAttachment || capture.attachments.hasAttachment, attachmentEvidenceComplete: evidence.complete, writeMethod: method, traceID: diagnostics?.id))
         }
         func copyOnly() throws -> Never {
-            guard targetSupported else { throw PolishFailure(message: "目前只支持微信") }
+            guard unchanged(capture) else { throw PolishFailure(message: "输入框已变化，请重新按快捷键") }
             method = "copy_only"
             ClipboardTransaction.copyResult(AttachmentSafety.clipboardText(text))
             throw PolishFailure(message: evidence.hasAttachment || capture.attachments.hasAttachment ? AttachmentSafety.copyMessage : AttachmentSafety.unknownMessage)

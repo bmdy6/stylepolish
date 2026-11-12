@@ -1,8 +1,8 @@
 # <img src="docs/images/icon-256.png" width="64" alt="StylePolish 图标" /> StylePolish
 
-A macOS writing assistant for WeChat only (`com.tencent.xinWeChat`). It polishes text while keeping your voice; you stay in control of sending. Automatic checks, underlines, suggestions and manual shortcuts work only in WeChat. Other apps are excluded, including when a legacy shortcut or old app list was enabled.
+A macOS writing assistant that polishes text while keeping your voice; you stay in control of sending. WeChat is enabled by default. You can enable other apps in Settings; writeback may fail in unverified apps. Automatic checks and shortcuts only run in enabled apps.
 
-目前只支持 macOS 微信（`com.tencent.xinWeChat`）：停笔后帮你润色，保留你的口吻，发送仍由你自己按。自动检查、下划线、建议、快捷键和写回都只针对微信；其他软件里不触发，旧版保存的 App 列表会自动重置为只有微信。
+默认在 macOS 微信里使用（`com.tencent.xinWeChat`），其他 App 可以在设置里打开（未验证的可能写回失败）。停笔后帮你润色，保留你的口吻，发送仍由你自己按。自动检查、快捷键和写回只针对已启用的 App。
 
 **▶ 30 秒宣传片**（点图片播放）：
 
@@ -61,7 +61,7 @@ scripts/build-app.sh
 
 试用中转默认地址目前为占位值 `https://relay.invalid`，服务尚未开放；邀请码选项仍可见，验证时提示「试用服务还没开放」。上线后可在高级设置修改中转地址。邀请码单独保存在 `~/.config/stylepolish/invite.json`，首次启动生成的设备 UUID 保存在同目录的 `device-id`，文件权限均为 `0600`，不进入钥匙串，也不放入 UserDefaults。试用请求只发送邀请码和设备 UUID，不发送自己的 API Key。
 
-设置固定显示「目前只支持微信」，不提供增删 App。设置分为「润色方式」「支持的 App」「权限与说明」「高级」。接口地址、模型、速度、vault Key 名称、口吻档案、个人词表和 ⌥Space 备用弹窗都在高级中。Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、目录 `0700`；可选读取 `~/.config/ai-vault/vault.json` 的 `OPENAI_PLATFORM_API_KEY`，优先于本地文件，不访问登录钥匙串。
+设置里的「在哪些 App 里使用」可以勾选、移除 App，或添加正在运行的 App。默认只勾微信，未验证的 App 会标注写回风险。设置分为「润色方式」「在哪些 App 里使用」「权限与说明」「高级」。接口地址、模型、速度、vault Key 名称、口吻档案、个人词表和 ⌥Space 备用弹窗都在高级中。Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、目录 `0700`；可选读取 `~/.config/ai-vault/vault.json` 的 `OPENAI_PLATFORM_API_KEY`，优先于本地文件，不访问登录钥匙串。
 
 <!-- readme-illustrate:my-habits -->
 <img src="docs/images/my-habits.png" alt="我的习惯设置页：常写错、不想被改、提醒模型注意，以及恢复和总开关" width="560">
@@ -84,7 +84,7 @@ scripts/build-app.sh
 ## 已知限制
 
 - 长段「理顺」的效果还不稳定，默认模型主要擅长纠错。
-- 仅支持微信；微信不同版本和输入框的完整采纳写回兼容性仍需逐项实机验证。
+- 默认只启用微信；其他 App 可以在设置里打开，未验证的可能写回失败，各版本和输入框的兼容性仍需逐项验证。
 - 没有自动更新，升级需要重新下载；切换签名后可能需要重新授权辅助功能。
 - 没有 Apple 公证；本机构建的 zip 仅包含构建机器的架构。
 

@@ -17,7 +17,8 @@ final class StorageIsolationTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["STYLEPOLISH_ISOLATION_CHILD"] != "1" else { return }
         let home = FileManager.default.homeDirectoryForCurrentUser
         let paths = ["Library/Logs/StylePolish/diagnostics.jsonl", "Library/Application Support/StylePolish/history.jsonl",
-                     "Library/Preferences/org.bmdy6.StylePolish.plist", "Library/Application Support/StylePolish/habits-overrides.json"]
+                     "Library/Preferences/org.bmdy6.StylePolish.plist", "Library/Application Support/StylePolish/habits-overrides.json",
+                     ".config/stylepolish/apps.json"]
         func snapshot() -> [String: String] {
             Dictionary(uniqueKeysWithValues: paths.map { path in
                 let attrs = try? FileManager.default.attributesOfItem(atPath: home.appendingPathComponent(path).path)
