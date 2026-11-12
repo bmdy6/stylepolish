@@ -48,7 +48,7 @@ struct OnboardingView: View {
     }
     private var authorization: some View {
         Group {
-            heading("先让 StylePolish 能看到你打的字", "目前只支持微信，只读取微信普通输入框里的文字，不读密码框。")
+            heading("先让 StylePolish 能看到你打的字", "默认在微信里使用，其他 App 可以在设置里打开（未验证的可能写回失败）。只读取普通输入框，不读密码框。")
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("辅助功能权限").fontWeight(.semibold)
@@ -122,7 +122,7 @@ struct OnboardingView: View {
             }
             Spacer(minLength: 8)
             HStack(alignment: .bottom, spacing: 12) {
-                Text("目前只支持微信。菜单栏图标里可以随时暂停自动检查。")
+                Text("默认在微信里使用，其他 App 可以在设置里打开（未验证的可能写回失败）。菜单栏里可以随时暂停。")
                     .font(.system(size: 12)).foregroundColor(PolishTheme.sub).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button("完成", action: finish).buttonStyle(PolishButton(primary: true)).disabled(!model.state.canFinish)

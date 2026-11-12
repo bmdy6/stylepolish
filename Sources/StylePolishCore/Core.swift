@@ -6,13 +6,6 @@ public func postprocess(_ text: String) -> String {
     return result
 }
 
-/// Product boundary shared by automatic checks, shortcuts and diagnostics.
-public enum SupportedApps {
-    public static let wechat = "com.tencent.xinWeChat"
-    public static let all = [wechat]
-    public static func contains(_ bundleID: String?) -> Bool { bundleID == wechat }
-}
-
 public struct FocusSnapshot: Equatable {
     public let pid: Int32
     public let element: String

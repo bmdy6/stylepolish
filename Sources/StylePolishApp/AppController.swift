@@ -6,8 +6,8 @@ import StylePolishCore
 @MainActor final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let settings = SettingsStore()
     let state = PanelModel()
-    let access = AccessibilityAccess()
-    let keyboard = KeyboardController()
+    lazy var access = AccessibilityAccess(supportedApps: settings.supportedApps)
+    lazy var keyboard = KeyboardController(supportedApps: settings.supportedApps)
     var history: HistoryStore { settings.history }
     lazy var automatic = AutomaticPolish(access: access, settings: settings, history: history)
     lazy var panel = PolishPanel(model: state)
@@ -95,7 +95,7 @@ import StylePolishCore
         #endif
         if CommandLine.arguments.contains("--diagnostics") {
             print("AX trusted: \(AccessibilityAccess.trusted())")
-            for id in SupportedApps.all {
+            for id in settings.supportedApps.entries.map(\.bundleID) {
                 print("\(id): \(NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) == nil ? "not installed" : "installed")")
             }
             NSApp.terminate(nil); return
@@ -139,14 +139,14 @@ import StylePolishCore
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                if !self.access.targetSupported { self.cancelSession() }
+                self.cancelSession()
                 self.keyboard.start(legacyEnabled: self.shortcutEnabled)
             }
         }
         keyboard.start(legacyEnabled: shortcutEnabled)
         automatic.start()
         settingsSubscription = settings.objectWillChange.sink { [weak self] _ in
-            Task { @MainActor [weak self] in guard let self else { return }; self.keyboard.start(legacyEnabled: self.shortcutEnabled); self.refreshStatus() }
+            Task { @MainActor [weak self] in guard let self else { return }; if !self.access.targetSupported { self.cancelSession() }; self.keyboard.start(legacyEnabled: self.shortcutEnabled); self.refreshStatus() }
         }
         inviteSubscription = settings.invite.objectWillChange.sink { [weak self] _ in
             Task { @MainActor [weak self] in self?.refreshStatus() }
@@ -162,7 +162,7 @@ import StylePolishCore
     }
     var shortcutEnabled: Bool {
         // Live foreground identity: cached automatic.frontApp can still name WeChat after a switch.
-        enabled && SupportedApps.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        enabled && settings.supportedApps.isEnabled(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
     }
     var displayStatus: ActivityStatus {
         if !AccessibilityAccess.trusted() { return .fallback(.permission) }
@@ -200,7 +200,7 @@ import StylePolishCore
         }
         let statusRow = NSMenuItem(title: detail ?? reason?.menuTitle ?? status.title, action: reason == .network || reason == nil ? nil : #selector(repairStatus), keyEquivalent: "")
         statusRow.target = self; menu.addItem(statusRow)
-        menu.addItem(withTitle: "目前只支持微信", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "默认在微信里使用，其他 App 可在设置里打开", action: nil, keyEquivalent: "")
         let engineItem = NSMenuItem(title: "润色方式：" + settings.engine.title, action: nil, keyEquivalent: "")
         let engines = NSMenu()
         for engine in PolishEngine.allCases {
@@ -292,7 +292,7 @@ import StylePolishCore
             guard let self else { return }; defer { self.busy = false }
             do {
                 let captured = try await self.access.capture()
-                guard self.shortcutEnabled, !Task.isCancelled else { return }
+                guard self.shortcutEnabled, self.access.isForeground(captured), !Task.isCancelled else { return }
                 self.capture = captured; self.state.appName = captured.appName; self.state.input = captured.input
                 self.state.output = ""; self.state.showOriginal = false
                 self.startPolish()
@@ -300,7 +300,7 @@ import StylePolishCore
         }
     }
     func startPolish() {
-        guard shortcutEnabled, let capture, SupportedApps.contains(capture.bundleID) else { return }
+        guard shortcutEnabled, let capture, access.isForeground(capture) else { return }
         request?.cancel(); requestID = UUID(); let id = requestID
         let diagnostics = DiagnosticTrace(bundleID: capture.bundleID)
         diagnosticTrace = diagnostics
@@ -327,11 +327,11 @@ import StylePolishCore
                 } else {
                     do {
                         result = try await PolishClient().polish(capture.input, config: config, metrics: { diagnostics.metrics($0, model: config.model) }) { [weak self] partial in
-                            guard let self, self.requestID == id, self.shortcutEnabled else { return }; self.state.output = partial
+                            guard let self, self.requestID == id, self.shortcutEnabled, self.access.isForeground(capture) else { return }; self.state.output = partial
                         }
                     } catch {
                         try Task.checkCancellation()
-                        guard self.shortcutEnabled else { return }
+                        guard self.shortcutEnabled, self.access.isForeground(capture) else { return }
                         if error is CancellationError { throw error }
                         fallbackReason = FallbackReason.classify(error)
                         fallbackSummary = (error as? PolishFailure)?.message ?? "AI 请求失败"
@@ -342,7 +342,7 @@ import StylePolishCore
                         Diagnostics.shared.record(DiagnosticEvent(event: "shortcut_fallback", bundleID: capture.bundleID, traceID: diagnostics.id, engine: engine.rawValue, fallback: fallbackReason))
                     }
                 }
-                guard !Task.isCancelled, self.requestID == id, self.shortcutEnabled else { return }
+                guard !Task.isCancelled, self.requestID == id, self.shortcutEnabled, self.access.isForeground(capture) else { return }
                 self.settings.checked(CheckResult(suggestions: diagnosticEdits ?? [], fallback: fallbackReason, failureSummary: fallbackSummary), config: config)
                 self.automatic.updateFallback(fallbackReason, summary: fallbackSummary)
                 self.state.output = result; self.state.edited = result
@@ -353,7 +353,7 @@ import StylePolishCore
                 self.state.phase = .preview; self.resize()
                 Diagnostics.shared.record(DiagnosticEvent(event: "shortcut_result", bundleID: capture.bundleID, traceID: diagnostics.id, requestMS: self.state.latencyMS, resultMS: self.state.latencyMS, engine: engine.rawValue, fallback: fallbackReason))
             } catch {
-                guard !Task.isCancelled, self.requestID == id, self.shortcutEnabled else { return }
+                guard !Task.isCancelled, self.requestID == id, self.shortcutEnabled, self.access.isForeground(capture) else { return }
                 self.state.latencyMS = Int(Date().timeIntervalSince(start) * 1000)
                 Diagnostics.shared.record(DiagnosticEvent(event: "shortcut_failed", bundleID: capture.bundleID, traceID: diagnostics.id, requestMS: self.state.latencyMS, error: "check_failed"))
                 self.showError(error.localizedDescription)
@@ -365,7 +365,7 @@ import StylePolishCore
         if capture != nil { startPolish() } else { panel.orderOut(nil); trigger() }
     }
     func edit() {
-        guard shortcutEnabled else { return }
+        guard shortcutEnabled, let capture, access.isForeground(capture) else { return }
         guard state.phase == .preview else { return }
         state.edited = state.output; state.phase = .edit; resize()
         // A nonactivating panel may become key for typing without activating the app.
@@ -373,6 +373,7 @@ import StylePolishCore
     }
     func key(_ code: CGKeyCode, _ flags: CGEventFlags) -> Bool {
         guard access.targetSupported else { return false }
+        if let capture, !access.isForeground(capture) { cancelSession(); return false }
         if onboarding.isKeyWindow { return false }
         guard panel.isVisible else { return automatic.key(code, flags) }
         if (code == 36 || code == 76), !panel.isKeyWindow { return true }
@@ -409,6 +410,7 @@ import StylePolishCore
     func accept() {
         guard shortcutEnabled else { cancelSession(); return }
         guard !busy, state.phase == .preview || state.phase == .edit, let captured = capture else { return }
+        guard access.isForeground(captured) else { cancelSession(); return }
         let diagnostics = diagnosticTrace
         diagnostics?.action("accept_all", count: 1)
         let edited = state.phase == .edit
@@ -426,9 +428,9 @@ import StylePolishCore
             guard let self else { return }; defer { self.busy = false }
             do {
                 // A switch to another app must not write the editor or clipboard.
-                guard self.shortcutEnabled else { self.cancelSession(); return }
+                guard self.shortcutEnabled, self.access.isForeground(captured) else { self.cancelSession(); return }
                 let written = try await self.access.write(final, to: captured, diagnostics: diagnostics)
-                guard self.shortcutEnabled else { self.cancelSession(); return }
+                guard self.shortcutEnabled, self.access.isForeground(captured) else { self.cancelSession(); return }
                 if written {
                     do { try self.record(action: edited ? .edit : .accept, final: final); self.capture = nil; self.panel.orderOut(nil); self.automatic.enabled = self.enabled }
                     catch { self.capture = nil; self.showNotice("已写回，但本地记录写入失败，请检查磁盘权限") }
@@ -444,8 +446,8 @@ import StylePolishCore
     func resize() {
         let text = state.phase == .preview ? state.input + state.output : state.phase == .edit ? state.edited : state.input + state.message
         let rect = (text as NSString).boundingRect(with: NSSize(width: 408, height: 10000), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 15)])
-        panel.position(bounds: capture?.bounds, fallbackWindow: capture.flatMap { SupportedApps.contains($0.bundleID) ? access.windowBounds($0.element) : nil }, height: state.phase == .edit ? 240 : ceil(rect.height) + 130)
+        panel.position(bounds: capture?.bounds, fallbackWindow: capture.flatMap { settings.supportedApps.isEnabled($0.bundleID) ? access.windowBounds($0.element) : nil }, height: state.phase == .edit ? 240 : ceil(rect.height) + 130)
     }
-    func showError(_ message: String) { guard access.targetSupported else { return }; state.message = message; state.phase = .error; if capture == nil { state.appName = "StylePolish"; state.input = "" }; resize(); panel.makeKeyAndOrderFront(nil) }
+    func showError(_ message: String) { guard access.targetSupported, capture.map({ access.isForeground($0) }) ?? true else { return }; state.message = message; state.phase = .error; if capture == nil { state.appName = "StylePolish"; state.input = "" }; resize(); panel.makeKeyAndOrderFront(nil) }
     func showNotice(_ message: String) { guard access.targetSupported else { return }; state.message = message; state.phase = .notice; resize(); panel.makeKeyAndOrderFront(nil) }
 }

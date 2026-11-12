@@ -8,6 +8,7 @@ import StylePolishCore
         guard let prompt = PolishClient.promptURL, FileManager.default.fileExists(atPath: prompt.path) else { throw CocoaError(.fileReadNoSuchFile) }
         let url = URL(fileURLWithPath: directory, isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        if CommandLine.arguments.contains("--settings-only") { try captureSettings(to: url); return }
         try captureHabits(to: url)
         if CommandLine.arguments.contains("--habits-only") { return }
         let indicators: [InputIndicatorState] = [.watching, .checking, .clean, .suggestions(3), .warning("模拟：读不到 AXValue，使用 ⌥ Space")]
@@ -37,12 +38,17 @@ import StylePolishCore
             state.phase = phase; state.message = "润色失败：接口超时（30s）。原文没动。"
             try render(PanelView(state: state), size: NSSize(width: 440, height: phase == .edit ? 240 : 210), to: url.appendingPathComponent(name + ".png"))
         }
-        let defaults = MemoryDefaults()
-        defaults.removePersistentDomain(forName: "org.bmdy6.StylePolish.fixture")
-        let settings = SettingsStore(defaults: defaults)
-        try render(SettingsView(settings: settings, openHistory: {}, clearHistory: {}, permission: {}, fixture: true), size: NSSize(width: 614, height: 650), to: url.appendingPathComponent("settings.png"))
-        defaults.removePersistentDomain(forName: "org.bmdy6.StylePolish.fixture")
+        try captureSettings(to: url)
         if CommandLine.arguments.contains("--capture-menu") { captureMenu(to: url.appendingPathComponent("menu.png")) }
+    }
+    private static func captureSettings(to url: URL) throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("StylePolish-settings-fixture-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let settings = SettingsStore(defaults: MemoryDefaults(), credentialHome: home,
+                                     diagnostics: Diagnostics(directory: home.appendingPathComponent("logs")), history: HistoryStore(directory: home.appendingPathComponent("history")))
+        try render(SettingsView(settings: settings, openHistory: {}, clearHistory: {}, permission: {}, fixture: true), size: NSSize(width: 614, height: 650), to: url.appendingPathComponent("settings.png"))
+        settings.setAppEnabled("com.linear", enabled: true)
+        try render(SettingsView(settings: settings, openHistory: {}, clearHistory: {}, permission: {}, fixture: true), size: NSSize(width: 614, height: 650), to: url.appendingPathComponent("settings-linear-enabled.png"))
     }
     private static func captureWaves(to url: URL) throws {
         let field = NSTextField(labelWithString: "这个的话我看了一下，然后明天再确认")

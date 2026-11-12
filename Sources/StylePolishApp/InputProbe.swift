@@ -6,7 +6,7 @@ import StylePolishCore
 @MainActor enum InputProbe {
     // Explicit CLI-only acceptance: read an existing field, never focus/type/copy/write.
     static func modelCheck(access: AccessibilityAccess, target: NSRunningApplication, config: PolishConfiguration) async throws {
-        guard SupportedApps.contains(target.bundleIdentifier) else { throw PolishFailure(message: "目前只支持微信") }
+        guard access.supports(target.bundleIdentifier) else { throw PolishFailure(message: "这个 App 未启用") }
         let root = AXUIElementCreateApplication(target.processIdentifier)
         var candidates: [AXUIElement] = []
         if let raw = access.attribute(root, kAXFocusedUIElementAttribute), CFGetTypeID(raw) == AXUIElementGetTypeID() {
@@ -33,7 +33,7 @@ import StylePolishCore
         guard unchanged else { throw PolishFailure(message: "输入框在测试期间发生变化") }
     }
     static func write(access: AccessibilityAccess, target: NSRunningApplication? = nil) throws -> URL {
-        guard SupportedApps.contains((target ?? NSWorkspace.shared.frontmostApplication)?.bundleIdentifier) else { throw PolishFailure(message: "目前只支持微信") }
+        guard access.supports((target ?? NSWorkspace.shared.frontmostApplication)?.bundleIdentifier) else { throw PolishFailure(message: "这个 App 未启用") }
         let focus: (NSRunningApplication, AXUIElement)?
         if let target, let raw = access.attribute(AXUIElementCreateApplication(target.processIdentifier), kAXFocusedUIElementAttribute), CFGetTypeID(raw) == AXUIElementGetTypeID() {
             focus = (target, unsafeBitCast(raw, to: AXUIElement.self))

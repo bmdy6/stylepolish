@@ -1,0 +1,9 @@
+[
+  {"bundleID":"com.tencent.xinWeChat","name":"微信","verified":true,"enabledByDefault":true,"axActivation":null,"clipboardWhole":true,"extensions":{}},
+  {"bundleID":"com.electron.lark","name":"飞书","verified":false,"enabledByDefault":false,"axActivation":"AXManualAccessibility","clipboardWhole":false,"extensions":{}},
+  {"bundleID":"com.linear","name":"Linear","verified":false,"enabledByDefault":false,"axActivation":"AXManualAccessibility","clipboardWhole":false,"extensions":{}},
+  {"bundleID":"com.anthropic.claudefordesktop","name":"Claude","verified":false,"enabledByDefault":false,"axActivation":"AXManualAccessibility","clipboardWhole":false,"extensions":{}},
+  {"bundleID":"com.google.Chrome","name":"Chrome","verified":false,"enabledByDefault":false,"axActivation":"AXEnhancedUserInterface","clipboardWhole":false,"extensions":{}},
+  {"bundleID":"com.apple.Safari","name":"Safari","verified":false,"enabledByDefault":false,"axActivation":null,"clipboardWhole":false,"extensions":{}},
+  {"bundleID":"com.apple.Notes","name":"备忘录","verified":false,"enabledByDefault":false,"axActivation":null,"clipboardWhole":false,"extensions":{}}
+]

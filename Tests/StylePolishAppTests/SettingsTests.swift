@@ -14,8 +14,36 @@ final class SettingsTests: XCTestCase {
             XCTAssertEqual(settings.apps, ["com.tencent.xinWeChat"])
             XCTAssertEqual(defaults.stringArray(forKey: "apps"), ["com.tencent.xinWeChat"])
             XCTAssertTrue(settings.legacyShortcut)
-            XCTAssertEqual(SettingsStore(defaults: defaults, credentialHome: root).apps, ["com.tencent.xinWeChat"])
+            XCTAssertEqual(SettingsStore(defaults: defaults, credentialHome: root, diagnostics: Diagnostics(directory: root)).apps, ["com.tencent.xinWeChat"])
         }
+    }
+
+    func testNewJSONOptInSurvivesLegacyMigrationAndRestart() {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let defaults = MemoryDefaults()
+        defaults.set(["com.apple.Safari", "com.linear"], forKey: "apps")
+        let settings = SettingsStore(defaults: defaults, credentialHome: home, diagnostics: Diagnostics(directory: home))
+        XCTAssertEqual(settings.apps, [SupportedApps.wechat])
+        settings.setAppEnabled("com.linear", enabled: true)
+        let restored = SettingsStore(defaults: defaults, credentialHome: home, diagnostics: Diagnostics(directory: home))
+        XCTAssertEqual(restored.apps, [SupportedApps.wechat, "com.linear"])
+        XCTAssertEqual(defaults.stringArray(forKey: "apps"), restored.apps)
+    }
+
+    func testInvalidJSONRecordsConfigurationDiagnostic() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let file = home.appendingPathComponent(".config/stylepolish/apps.json")
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("invalid JSON".utf8).write(to: file)
+        let diagnostics = Diagnostics(directory: home.appendingPathComponent("logs"))
+        let settings = SettingsStore(defaults: MemoryDefaults(), credentialHome: home, diagnostics: diagnostics)
+        XCTAssertEqual(settings.apps, [SupportedApps.wechat])
+        diagnostics.flush()
+        let log = try String(contentsOf: diagnostics.url)
+        XCTAssertTrue(log.contains("app_configuration"))
+        XCTAssertTrue(log.contains("invalid_app_configuration"))
     }
 
     @MainActor func testDefaultsAndPerLevelDisabledKindsPersist() async {

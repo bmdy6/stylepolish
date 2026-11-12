@@ -37,7 +37,17 @@ final class SettingsStore: ObservableObject {
     @Published var serviceTier: String { didSet { guard initialized, serviceTier != oldValue else { return }; save("serviceTier") } }
     @Published var model: String { didSet { guard initialized, model != oldValue else { return }; save("model") } }
     @Published var profile: String { didSet { guard initialized, profile != oldValue else { return }; save("profile") } }
-    var apps: [String] { SupportedApps.all }
+    let supportedApps: SupportedApps
+    @Published private(set) var appRevision = 0
+    @Published private(set) var appError: String?
+    var apps: [String] { supportedApps.enabledBundleIDs }
+    func setAppEnabled(_ id: String, enabled: Bool) { updateApps { try supportedApps.setEnabled(id, enabled: enabled) } }
+    func removeApp(_ id: String) { updateApps { try supportedApps.remove(id) } }
+    func addApp(_ id: String, name: String) { updateApps { try supportedApps.add(bundleID: id, name: name) } }
+    private func updateApps(_ action: () throws -> Void) {
+        do { try action(); appError = nil; appRevision += 1; defaults.set(apps, forKey: "apps"); changed("apps") }
+        catch { appError = "App 配置保存失败，请检查配置文件权限。"; diagnostics.record(DiagnosticEvent(event: "app_configuration", bundleID: "org.bmdy6.StylePolish", error: "save_failed")) }
+    }
     @Published var level: Strictness { didSet { guard initialized, level != oldValue else { return }; save("level") } }
     @Published var legacyShortcut: Bool { didSet { guard initialized, legacyShortcut != oldValue else { return }; save("legacyShortcut") } }
     @Published var disabledKindsByLevel: [String: [String]] { didSet { guard initialized, disabledKindsByLevel != oldValue else { return }; save("disabledKindsByLevel") } }
@@ -62,6 +72,9 @@ final class SettingsStore: ObservableObject {
     private let defaults: UserDefaults
     init(defaults: UserDefaults = RuntimeStorage.defaults, credentialHome: URL = RuntimeStorage.home, diagnostics: Diagnostics = .shared, history: HistoryStore = HistoryStore()) {
         self.defaults = defaults; self.diagnostics = diagnostics; self.history = history
+        supportedApps = SupportedApps(home: credentialHome, diagnostic: { error in
+            diagnostics.record(DiagnosticEvent(event: "app_configuration", bundleID: "org.bmdy6.StylePolish", error: error))
+        })
         habitsEnabled = defaults.object(forKey: "habitsEnabled") as? Bool ?? true
         invite = InviteAccess(home: credentialHome)
         relayBase = defaults.string(forKey: "relayBase") ?? InviteService.defaultBase
@@ -79,8 +92,8 @@ final class SettingsStore: ObservableObject {
         level = Strictness(rawValue: defaults.string(forKey: "strictness") ?? "") ?? .standard
         legacyShortcut = defaults.bool(forKey: "legacyShortcut")
         disabledKindsByLevel = defaults.dictionary(forKey: "disabledKindsByLevel") as? [String: [String]] ?? [:]
-        // Ignore historical/custom lists and persist the fixed product boundary.
-        defaults.set(SupportedApps.all, forKey: "apps")
+        // Historical preference lists are never restored; only the new JSON can opt in.
+        defaults.set(supportedApps.enabledBundleIDs, forKey: "apps")
         syncDiagnostics()
         initialized = true
         history.habitsChanged = { [weak self] in self?.habitRevision += 1 }

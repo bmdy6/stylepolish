@@ -38,7 +38,18 @@ Key 按 ai-vault → 本地文件 → 未配置的顺序选择。设置显示来
 
 在系统设置 → 隐私与安全性 → 辅助功能中允许 StylePolish，然后回到引导等待自动检测。若键盘监听仍不可用，检查“输入监控”并重启 App。预览按键需要系统事件监听权限。
 
-目前只支持微信（`com.tencent.xinWeChat`），白名单固定，不提供选择 App 或增删 bundle id。旧版保存的 App 列表在启动时重置为只有微信。自动检查、下划线、建议、⌥Enter、⌥Space 和诊断探测均不作用于其他软件，即使旧设置开了备用快捷键。密码输入框与非文字角色拒绝读取。
+默认在微信（`com.tencent.xinWeChat`）里使用，其他 App 可以在设置里打开（未验证的可能写回失败）。在「在哪些 App 里使用」勾选、移除，或从正在运行的 App 中添加。浏览器按整个 App 生效。自动检查、下划线、建议、⌥Enter、⌥Space 和诊断探测只针对已启用 App；切换 App 会取消旧会话，不跨 App 写回或复制。密码输入框与非文字角色拒绝读取。
+
+内置配置位于 `Sources/StylePolishCore/Resources/apps.json`。用户覆盖文件为 `~/.config/stylepolish/apps.json`（权限 `0600`），按 bundle ID 精确合并，用户字段优先；手动修改后重启生效。旧版 `apps` 偏好不会恢复成启用列表。文件是 JSON 数组，可以只覆盖开关，也可以添加新 App：
+
+```json
+[
+  {"bundleID": "com.linear", "enabled": true},
+  {"bundleID": "org.example.Editor", "name": "Editor", "enabled": true, "verified": false, "axActivation": null, "clipboardWhole": false, "extensions": {}}
+]
+```
+
+`enabled` 覆盖 `enabledByDefault`，`removed: true` 隐藏条目；新 App 默认未验证、关闭。`extensions` 为将来按 App 配置预留，目前不改变行为。未知字段、坏 JSON 或字段类型错误会整份回退内置配置并记诊断；不会部分启用。
 
 默认自动检查：停笔 1.5 秒后检查整个当前输入框（设置中可用滑块调为 0.5–3 秒）；不足 4 字、密码框和无法经 AX 读写的输入框不自动检查。检测到建议后，在输入框下方自动显示红删绿增的整句预览条；取不到位置时显示在鼠标附近。预览不抢焦点，继续打字会作废旧预览，下一次检查再更新。`⌥Enter` 一次全部采纳，`Esc` 忽略这次预览。红色波浪线表示错字/赘词，黄色表示通顺/书面表达；点击下划线或停留 300ms 打开卡片，逐条采纳、忽略或关闭类别。取不到文字位置时保留角标和建议列表。
 

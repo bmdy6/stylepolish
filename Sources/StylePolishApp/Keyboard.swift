@@ -3,11 +3,13 @@ import Carbon
 import StylePolishCore
 
 @MainActor final class KeyboardController {
+    private let supportedApps: SupportedApps
     private let frontmostBundleID: () -> String?
-    init(frontmostBundleID: @escaping () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }) {
+    init(supportedApps: SupportedApps = SupportedApps(), frontmostBundleID: @escaping () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }) {
+        self.supportedApps = supportedApps
         self.frontmostBundleID = frontmostBundleID
     }
-    var targetSupported: Bool { SupportedApps.contains(frontmostBundleID()) }
+    var targetSupported: Bool { supportedApps.isEnabled(frontmostBundleID()) }
     private var hotkey: EventHotKeyRef?
     private var probeHotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?

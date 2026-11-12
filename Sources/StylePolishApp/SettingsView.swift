@@ -82,9 +82,49 @@ struct SettingsView: View {
     }
     private var enabledApps: some View {
         VStack(alignment: .leading, spacing: 8) {
-            title("支持的 App")
-            Text("目前只支持微信")
+            title("在哪些 App 里使用")
+            Text("默认在微信里使用，其他 App 可以在这里打开。")
+                .font(.system(size: 12)).foregroundColor(PolishTheme.sub).fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(settings.supportedApps.entries) { app in
+                        HStack(alignment: .top, spacing: 6) {
+                            Toggle(isOn: Binding(get: { app.isEnabled }, set: { settings.setAppEnabled(app.bundleID, enabled: $0) })) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(app.name).lineLimit(1).truncationMode(.middle).help(app.bundleID)
+                                    if !app.verified {
+                                        Text("未验证，写回可能失败").font(.system(size: 11)).foregroundColor(PolishTheme.sub)
+                                    }
+                                }
+                            }.toggleStyle(.checkbox).accessibilityLabel("在 " + app.name + " 里使用")
+                            Spacer(minLength: 0)
+                            Button { settings.removeApp(app.bundleID) } label: {
+                                Image(systemName: "xmark").font(.system(size: 10))
+                            }.buttonStyle(.plain).accessibilityLabel("移除 " + app.name)
+                        }
+                    }
+                }.padding(.vertical, 2)
+            }.frame(height: min(300, settings.supportedApps.entries.reduce(CGFloat(4)) { $0 + ($1.verified ? 25 : 41) }))
+            Menu("添加正在运行的 App…") {
+                if runningApps.isEmpty { Text("没有可添加的 App") }
+                ForEach(runningApps, id: \.processIdentifier) { app in
+                    Button(app.localizedName ?? app.bundleIdentifier ?? "App") {
+                        if let id = app.bundleIdentifier { settings.addApp(id, name: app.localizedName ?? id) }
+                    }
+                }
+            }.disabled(fixture)
+            if let error = settings.appError {
+                Text(error).font(.system(size: 11)).foregroundColor(PolishTheme.sub).fixedSize(horizontal: false, vertical: true)
+            }
+            Text("浏览器按整个 App 生效。").font(.system(size: 11)).foregroundColor(PolishTheme.sub)
         }
+    }
+    private var runningApps: [NSRunningApplication] {
+        guard !fixture else { return [] }
+        return NSWorkspace.shared.runningApplications.filter {
+            $0.activationPolicy == .regular && $0.bundleIdentifier != nil && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier
+                && settings.supportedApps.app($0.bundleIdentifier) == nil
+        }.sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
     }
     private var permissions: some View {
         VStack(alignment: .leading, spacing: 9) {
