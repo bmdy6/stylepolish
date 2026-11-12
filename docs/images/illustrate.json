@@ -1,0 +1,65 @@
+{
+  "baseline": {
+    "version": 2,
+    "commit": "491a5398f87c0b56741f412c8ccc067a9d722c9a",
+    "readmes": [
+      {
+        "file": "README.md",
+        "blob": "695b835bad63747d92a03f843641e5b84b2c42cc"
+      }
+    ]
+  },
+  "install": {
+    "url": "https://github.com/bmdy6/style-polish-app/releases/latest",
+    "heading": "安装",
+    "label": "GitHub Releases",
+    "stepKeywords": [
+      "解压",
+      "应用程序",
+      "右键"
+    ]
+  },
+  "sources": "docs/images/SOURCES.md",
+  "images": [
+    {
+      "id": "inline-suggestions",
+      "readme": "README.md",
+      "file": "docs/images/inline-suggestions.png",
+      "alt": "行内红色错字下划线与黄色通顺下划线，各配真实建议卡片",
+      "width": 800,
+      "caption": "错字和通顺建议。以下四图均为离屏渲染，合成数据；[来源与限制](docs/images/SOURCES.md)。",
+      "placement": "step",
+      "sha256": "6d30588362af035d767e3cc1972d237c365efb75237e276bfc5e4d4c733cde97"
+    },
+    {
+      "id": "sentence-preview",
+      "readme": "README.md",
+      "file": "docs/images/sentence-preview.png",
+      "alt": "底部整句预览条，删除为红色删除线，新增为绿色，右侧提示 ⌥Enter 全部采纳",
+      "width": 800,
+      "caption": "整句预览：红删绿增，⌥Enter 全部采纳，Esc 忽略。",
+      "placement": "step",
+      "sha256": "d5a7953a55c72b0ca9d344ca85e7505dd1050cb92748f7be34a5ed1bcfe2c77a"
+    },
+    {
+      "id": "my-habits",
+      "readme": "README.md",
+      "file": "docs/images/my-habits.png",
+      "alt": "我的习惯设置页：常写错、不想被改、提醒模型注意，以及恢复和总开关",
+      "width": 560,
+      "caption": "「我的习惯」：本地纠错、忽略后的恢复、语境提醒和总开关。",
+      "placement": "step",
+      "sha256": "7c3f3d59abbde115a2802fbf51fb2beedc0013de93c6b8b05b173d82273553a3"
+    },
+    {
+      "id": "weekly-report",
+      "readme": "README.md",
+      "file": "docs/images/weekly-report.png",
+      "alt": "本周表达报告：采纳率、错字与前七天对比、建议类型、三个常见错字和下周留意",
+      "width": 720,
+      "caption": "「本周表达报告」：最近七天的采纳、忽略、错字对比与下周留意。",
+      "placement": "step",
+      "sha256": "9c216d81f9dc091542f8e0304393eeafdc4573127695e5cb4496a9baa2c6ba62"
+    }
+  ]
+}

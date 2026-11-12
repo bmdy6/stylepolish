@@ -45,6 +45,16 @@ scripts/build-app.sh
 
 第一次打开会走三步引导：授权辅助功能 → 选润色方式 → 在窗口里试一句。授权会每秒自动检测；已有授权会直接进入第二步。菜单「使用说明…」和设置「重新打开引导」都能再打开。
 
+<!-- readme-illustrate:inline-suggestions -->
+<img src="docs/images/inline-suggestions.png" alt="行内红色错字下划线与黄色通顺下划线，各配真实建议卡片" width="800">
+
+错字和通顺建议。以下四图均为离屏渲染，合成数据；[来源与限制](docs/images/SOURCES.md)。
+<!-- /readme-illustrate:inline-suggestions -->
+<!-- readme-illustrate:sentence-preview -->
+<img src="docs/images/sentence-preview.png" alt="底部整句预览条，删除为红色删除线，新增为绿色，右侧提示 ⌥Enter 全部采纳" width="800">
+
+整句预览：红删绿增，⌥Enter 全部采纳，Esc 忽略。
+<!-- /readme-illustrate:sentence-preview -->
 - **本地规则**：没读到 Key 时默认使用，免费、不联网。检查常见错写、白名单里的重复虚词/词、重复标点和个人词表 `aliases`；严格档额外检查中文间的半角逗号。不改写句子，不检查英文，不做通用叠字检测，也不用需要语境的 `contextual_aliases`。引用/代码字面保守跳过。
 - **邀请码**：由作者手动发放，验证后可试用 AI 润色。文字及可选口吻档案、词表会经过作者服务器转发给模型；中转不保存正文。设置里显示剩余百分比，低于 10% 时菜单提醒一次；码无效、额度用完或当月试用已满时改用本地规则，并给出更换邀请码 / 使用自己的 Key 的入口。网络失败、限速、输入过长只回退当次，下次照常重试。
 - **自己的 Key**：已有 Key 的用户保持 AI，可在设置切换。文字会发给你配置的 OpenAI 兼容服务。请求失败时当次自动用本地规则，菜单显示 Key、额度或网络原因；下次停笔仍重试 AI。
@@ -53,6 +63,16 @@ scripts/build-app.sh
 
 设置固定显示「目前只支持微信」，不提供增删 App。设置分为「润色方式」「支持的 App」「权限与说明」「高级」。接口地址、模型、速度、vault Key 名称、口吻档案、个人词表和 ⌥Space 备用弹窗都在高级中。Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、目录 `0700`；可选读取 `~/.config/ai-vault/vault.json` 的 `OPENAI_PLATFORM_API_KEY`，优先于本地文件，不访问登录钥匙串。
 
+<!-- readme-illustrate:my-habits -->
+<img src="docs/images/my-habits.png" alt="我的习惯设置页：常写错、不想被改、提醒模型注意，以及恢复和总开关" width="560">
+
+「我的习惯」：本地纠错、忽略后的恢复、语境提醒和总开关。
+<!-- /readme-illustrate:my-habits -->
+<!-- readme-illustrate:weekly-report -->
+<img src="docs/images/weekly-report.png" alt="本周表达报告：采纳率、错字与前七天对比、建议类型、三个常见错字和下周留意" width="720">
+
+「本周表达报告」：最近七天的采纳、忽略、错字对比与下周留意。
+<!-- /readme-illustrate:weekly-report -->
 升级后如果菜单显示「需要授权」，通常是签名变化使旧授权失效。点击状态打开引导，进入系统设置 → 隐私与安全性 → 辅助功能；旧条目开关无效时先选中点「−」移除，再点「+」添加 `/Applications/StylePolish.app`。检测到授权后会自动继续。
 ## 隐私
 
