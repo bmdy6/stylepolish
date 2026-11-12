@@ -14,6 +14,8 @@
 
 升级后签名变化可能让旧辅助功能授权失效。菜单「需要授权」可重新打开引导；系统设置中旧条目开关无效时，选中 StylePolish 点「−」移除，再点「+」重新添加 `/Applications/StylePolish.app`。不要添加下载目录里的副本。
 
+已安装支持更新的发布包时，从菜单栏选择「检查更新…」。有新版时，确认安装后会下载并验签，替换「应用程序」里的 StylePolish 再重启。0.6.0 及更早的发布包需先手动升级一次。
+
 ## 两种润色方式
 
 菜单和设置都能切换。本地规则免费、不联网，不需要 Key；默认有 Key 时使用 AI，老用户升级沿用 AI。
@@ -31,6 +33,16 @@ AI 文字发给你配置的 OpenAI 兼容服务。401/403 显示「Key 无效」
 首次构建不会创建钥匙串。可选运行 `scripts/setup-signing.sh`：创建空密码的专用 `~/Library/Keychains/stylepolish-signing.keychain-db`，生成本机自签名证书 `StylePolish Local`，授予 codesign 非交互使用权限；不会使用登录钥匙串。
 已有专用钥匙串时构建会调用该脚本自动解锁并配置权限；旧的机器生成密码文件会迁移后删除。
 `STYLEPOLISH_ADHOC=1 scripts/build-app.sh` 可明确跳过钥匙串。ad-hoc 更新可能需要重新授权辅助功能；自签名也不等于 Developer ID 或 Apple 公证。
+
+## 打包应用内更新
+
+在发布分支更新版本号，用 `STYLEPOLISH_BUILD_NUMBER` 指定高于上一个正式版的构建号，并复用同一份 StylePolish 代码签名身份和 Ed25519 更新密钥。更新密钥文件使用 base64 编码的 32 字节私钥种子，由发布者在仓库外保管。脚本将对应公钥写入 App，使用 Sparkle 2.10.1 的发布工具签署 ZIP 和 `appcast.xml`。
+
+```bash
+STYLEPOLISH_BUILD_NUMBER=38 scripts/package-update.sh /path/to/Sparkle/bin /path/to/update-private-key release/notes.md dist/update-release
+```
+
+将生成的 ZIP 上传到公开仓库的对应版本 Release，确认可下载后，再更新该仓库 `main` 根目录的 `appcast.xml`。保留已上传 ZIP 的原始字节，以便客户端验签。发布流程见 [Sparkle 文档](https://sparkle-project.org/documentation/publishing/)。
 
 ## 详细设置与快捷键
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise release packaging without launching an app or touching real keychains."""
+import base64
 import os
 from pathlib import Path
 import plistlib
@@ -11,7 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 
 class BuildAppTests(unittest.TestCase):
-    def build(self, identity=False, icon=False):
+    def build(self, identity=False, icon=False, update_key=None):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'scripts').mkdir()
@@ -27,6 +28,7 @@ class BuildAppTests(unittest.TestCase):
             rules.mkdir(parents=True)
             (rules / 'local-typos.json').write_text('{"因该":"应该"}')
             (rules / 'habit-tips.json').write_text('{"在/再":"synthetic tip"}')
+            (rules / 'apps.json').write_text('[]')
             if icon:
                 (resources / 'AppIcon.icns').write_bytes(b'synthetic icon')
             home = root / 'home'
@@ -37,6 +39,15 @@ class BuildAppTests(unittest.TestCase):
             bin_dir = root / 'bin'
             bin_dir.mkdir()
             (bin_dir / 'StylePolish').write_text('synthetic binary')
+            framework = bin_dir / 'Sparkle.framework'
+            version = framework / 'Versions/B'
+            version.mkdir(parents=True)
+            (version / 'Sparkle').write_text('synthetic framework')
+            (framework / 'Versions/Current').symlink_to('B')
+            (framework / 'Sparkle').symlink_to('Versions/Current/Sparkle')
+            sparkle_checkout = root / '.build/checkouts/Sparkle'
+            sparkle_checkout.mkdir(parents=True)
+            (sparkle_checkout / 'LICENSE').write_text('synthetic license')
             mocks = {
                 'swift': '#!/bin/bash\nif [[ "$*" == *--show-bin-path* ]]; then echo "$MOCK_ROOT/bin"; fi\n',
                 'git': '#!/bin/bash\ncase "$1" in rev-list) echo 1;; rev-parse) echo fixture;; esac\n',
@@ -56,11 +67,31 @@ esac
                 f.chmod(0o755)
             env = dict(os.environ, HOME=str(home), MOCK_ROOT=str(root), PATH=str(bin_dir)+':/usr/bin:/bin')
             env.pop('STYLEPOLISH_ADHOC', None)
+            env.pop('STYLEPOLISH_UPDATE_PUBLIC_KEY', None)
+            env.pop('STYLEPOLISH_BUILD_NUMBER', None)
+            if update_key is not None:
+                env['STYLEPOLISH_UPDATE_PUBLIC_KEY'] = update_key
+                env['STYLEPOLISH_BUILD_NUMBER'] = '38'
             result = subprocess.run(['bash', 'scripts/build-app.sh'], cwd=root, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             app = root / 'dist/StylePolish.app/Contents'
             info = plistlib.loads((app / 'Info.plist').read_bytes())
-            self.assertEqual(info['CFBundleShortVersionString'], '0.6.0')
+            self.assertEqual(info['CFBundleShortVersionString'], '0.7.0')
+            self.assertEqual(info['CFBundleVersion'], '38' if update_key is not None else '1')
+            packaged_framework = app / 'Frameworks/Sparkle.framework'
+            self.assertTrue((packaged_framework / 'Sparkle').is_symlink())
+            self.assertEqual((packaged_framework / 'Sparkle').read_text(), 'synthetic framework')
+            self.assertEqual((app / 'Resources/Sparkle-LICENSE.txt').read_text(), 'synthetic license')
+            if update_key is None:
+                self.assertNotIn('SUFeedURL', info)
+                self.assertNotIn('SUPublicEDKey', info)
+            else:
+                self.assertEqual(info['SUFeedURL'], 'https://raw.githubusercontent.com/bmdy6/stylepolish/main/appcast.xml')
+                self.assertEqual(info['SUPublicEDKey'], update_key)
+                self.assertFalse(info['SUEnableAutomaticChecks'])
+                self.assertFalse(info['SUAllowsAutomaticUpdates'])
+                self.assertTrue(info['SURequireSignedFeed'])
+                self.assertTrue(info['SUVerifyUpdateBeforeExtraction'])
             self.assertTrue((app / 'Resources/prompts/polish.md').exists())
             self.assertTrue((app / 'Resources/local-typos.json').exists())
             self.assertEqual((app / 'Resources/habit-tips.json').read_text(), '{"在/再":"synthetic tip"}')
@@ -88,6 +119,10 @@ esac
 
     def test_dedicated_identity_restores_search_and_copies_icon(self):
         self.build(identity=True, icon=True)
+
+    def test_release_build_configures_manual_signed_updates(self):
+        public_key = base64.b64encode(bytes(range(32))).decode()
+        self.build(identity=True, update_key=public_key)
 
 if __name__ == '__main__':
     unittest.main()

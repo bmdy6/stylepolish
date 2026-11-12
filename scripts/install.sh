@@ -1,13 +1,31 @@
 #!/bin/bash
 # No sudo, password prompts, app backups, or retained dist bundle.
 set -euo pipefail
+if [ "$#" -gt 1 ]; then
+    printf 'Usage: %s [release.zip]\n' "$0" >&2
+    exit 2
+fi
+archive=""
+if [ "$#" -eq 1 ]; then
+    archive="$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
+    test -f "$archive"
+fi
 cd "$(dirname "$0")/.."
 ROOT="$(pwd -P)"
 TARGET=/Applications/StylePolish.app
 BUNDLE_ID=org.bmdy6.StylePolish
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-scripts/build-app.sh
-codesign --verify --strict dist/StylePolish.app
+source_app=dist/StylePolish.app
+if [ -n "$archive" ]; then
+    stage="$(mktemp -d /Applications/.stylepolish-install.XXXXXX)"
+    trap 'rm -rf "$stage"' EXIT
+    ditto -x -k "$archive" "$stage"
+    source_app="$stage/StylePolish.app"
+else
+    scripts/build-app.sh
+fi
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$source_app/Contents/Info.plist")" = "$BUNDLE_ID"
+codesign --verify --deep --strict "$source_app"
 pkill -x StylePolish || true
 for attempt in {1..30}; do
     if ! pgrep -x StylePolish >/dev/null; then break; fi
@@ -17,16 +35,18 @@ if pgrep -x StylePolish >/dev/null; then echo 'StylePolish did not exit; install
 # Explicitly replace the installed version; do not rename it into a backup.
 "$LSREGISTER" -u "$TARGET" >/dev/null 2>&1 || true
 rm -rf "$TARGET"
-mv dist/StylePolish.app "$TARGET"
+mv "$source_app" "$TARGET"
 # Include unindexed archive/build copies as well as Spotlight matches.
 python3 - "$ROOT" "$HOME/归档/codex-任务" "$TARGET" "$LSREGISTER" <<'PY'
 import os, pathlib, plistlib, shutil, subprocess, sys
 root, archive, target, register = sys.argv[1:]
 paths = set(subprocess.check_output(['mdfind', 'kMDItemCFBundleIdentifier == org.bmdy6.StylePolish'], text=True).splitlines())
-# The containing repository includes other worktrees/dist outputs.
-repo = pathlib.Path(root)
-if repo.parent.name == '.worktrees': repo = repo.parent.parent
-for scan in (str(repo), archive):
+# Include the main checkout and linked worktrees, including ones outside the project directory.
+worktrees = subprocess.check_output(['git', '-C', root, 'worktree', 'list', '--porcelain'], text=True)
+repos = [line.removeprefix('worktree ') for line in worktrees.splitlines() if line.startswith('worktree ')]
+for directory in ('Applications', 'Downloads', '.Trash'):
+    paths.update(str(path) for path in (pathlib.Path.home() / directory).glob('*.app'))
+for scan in (*repos, archive):
     if not os.path.isdir(scan): continue
     for parent, dirs, _ in os.walk(scan):
         dirs[:] = [d for d in dirs if d not in ('.git', 'node_modules', '.build')]
@@ -59,6 +79,6 @@ for attempt in {1..20}; do
 done
 printf '%s\n' "$FOUND"
 [ "$FOUND" = "$TARGET" ] || { echo 'Spotlight inventory is not exactly the installed app.' >&2; exit 1; }
-codesign --verify --strict "$TARGET"
+codesign --verify --deep --strict "$TARGET"
 open "$TARGET"
 printf 'Installed single copy: %s\n' "$TARGET"

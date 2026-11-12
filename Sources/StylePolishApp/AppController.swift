@@ -24,6 +24,7 @@ import StylePolishCore
     private var diagnosticTrace: DiagnosticTrace?
     private var launchDiagnostic: DiagnosticEvent?
     private var exportStatus = ""
+    private lazy var updates = AppUpdates(bundle: .main)
     var requestModel = ""
     var busy = false
     var enabled = true
@@ -213,6 +214,9 @@ import StylePolishCore
         toggle.target = self; menu.addItem(toggle); menu.addItem(.separator())
         for (title, selector) in [("本周表达报告", #selector(showWeeklyReport)), ("导出诊断包…", #selector(exportDiagnostics)), ("使用说明…", #selector(showGuide)), ("设置…", #selector(showSettings)), ("打开记录文件夹", #selector(openHistory)), ("在访达中显示诊断日志", #selector(openDiagnostics)), ("探测当前输入框 · ⌃⌥P", #selector(probeInput)), ("退出", #selector(quit))] {
             let item = NSMenuItem(title: title, action: selector, keyEquivalent: ""); item.target = self; menu.addItem(item)
+            if selector == #selector(showSettings), let updateItem = updates.menuItem() {
+                menu.addItem(updateItem)
+            }
         }
         return menu
     }
