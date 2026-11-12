@@ -1,6 +1,6 @@
 # StylePolish 使用说明
 
-[项目仓库](https://github.com/bmdy6/style-polish-app) · [下载最新版本](https://github.com/bmdy6/style-polish-app/releases/latest)
+[项目仓库](https://github.com/bmdy6/stylepolish) · [下载最新版本](https://github.com/bmdy6/stylepolish/releases/latest)
 
 需要 macOS 13+。下载解压后，**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。首次右键 → 打开（没有 Apple 公证）。
 

@@ -16,9 +16,13 @@ A macOS writing assistant for WeChat only (`com.tencent.xinWeChat`). It polishes
 
 小改（错字、用错的词）在原文下画线，点开采纳；需要理顺时，底部预览改好的整段，⌥Enter 替换。继续输入会作废旧建议，Esc 忽略。不自动发送。
 
+「我的习惯」按采纳和忽略记录调整提醒：同一错字采纳 2 次且未忽略后，多字错写在本地直接标出，单字交给模型结合语境判断。同一建议忽略 2 次且未采纳后不再提示，可在设置里恢复，也可整体关闭习惯功能；习惯和报告只读本机记录，不调用模型学习。菜单「本周表达报告」可看最近七天的采纳率、已采纳错字纠正与前七天的对比、最常见的三个错字和下周留意。
+
+“My Habits” adjusts suggestions from your accept/ignore history: after the same typo is accepted twice with no ignores, multi-character mistakes are flagged locally, while single-character mistakes go to the model for context. Suggestions ignored twice with no accepts stop appearing; restore them in settings or turn habits off entirely, with habits and reports built only from local records and no model calls for learning. The menu’s “Weekly Expression Report” shows the last seven days’ acceptance rate, accepted typo corrections compared with the previous seven days, the three most frequent mistakes and a tip for next week.
+
 ## 安装
 
-需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/style-polish-app/releases/latest) 下载适合本机架构的 zip，解压后**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。
+需要 macOS 13+。从 [GitHub Releases](https://github.com/bmdy6/stylepolish/releases/latest) 下载适合本机架构的 zip，解压后**先把 App 拖进「应用程序」再打开，不要在下载文件夹里直接双击**。
 没有 Apple 公证，第一次打开要右键 → 打开；信任来源后也可执行：
 
 ```sh
@@ -28,8 +32,8 @@ xattr -dr com.apple.quarantine /Applications/StylePolish.app
 从源码构建需要 Swift 5.9+（Xcode Command Line Tools）：
 
 ```sh
-git clone https://github.com/bmdy6/style-polish-app
-cd style-polish-app
+git clone https://github.com/bmdy6/stylepolish
+cd stylepolish
 swift test
 scripts/build-app.sh
 ```
@@ -41,6 +45,16 @@ scripts/build-app.sh
 
 第一次打开会走三步引导：授权辅助功能 → 选润色方式 → 在窗口里试一句。授权会每秒自动检测；已有授权会直接进入第二步。菜单「使用说明…」和设置「重新打开引导」都能再打开。
 
+<!-- readme-illustrate:inline-suggestions -->
+<img src="docs/images/inline-suggestions.png" alt="行内红色错字下划线与黄色通顺下划线，各配真实建议卡片" width="800">
+
+错字和通顺建议。以下四图均为离屏渲染，合成数据；[来源与限制](docs/images/SOURCES.md)。
+<!-- /readme-illustrate:inline-suggestions -->
+<!-- readme-illustrate:sentence-preview -->
+<img src="docs/images/sentence-preview.png" alt="底部整句预览条，删除为红色删除线，新增为绿色，右侧提示 ⌥Enter 全部采纳" width="800">
+
+整句预览：红删绿增，⌥Enter 全部采纳，Esc 忽略。
+<!-- /readme-illustrate:sentence-preview -->
 - **本地规则**：没读到 Key 时默认使用，免费、不联网。检查常见错写、白名单里的重复虚词/词、重复标点和个人词表 `aliases`；严格档额外检查中文间的半角逗号。不改写句子，不检查英文，不做通用叠字检测，也不用需要语境的 `contextual_aliases`。引用/代码字面保守跳过。
 - **邀请码**：由作者手动发放，验证后可试用 AI 润色。文字及可选口吻档案、词表会经过作者服务器转发给模型；中转不保存正文。设置里显示剩余百分比，低于 10% 时菜单提醒一次；码无效、额度用完或当月试用已满时改用本地规则，并给出更换邀请码 / 使用自己的 Key 的入口。网络失败、限速、输入过长只回退当次，下次照常重试。
 - **自己的 Key**：已有 Key 的用户保持 AI，可在设置切换。文字会发给你配置的 OpenAI 兼容服务。请求失败时当次自动用本地规则，菜单显示 Key、额度或网络原因；下次停笔仍重试 AI。
@@ -49,6 +63,16 @@ scripts/build-app.sh
 
 设置固定显示「目前只支持微信」，不提供增删 App。设置分为「润色方式」「支持的 App」「权限与说明」「高级」。接口地址、模型、速度、vault Key 名称、口吻档案、个人词表和 ⌥Space 备用弹窗都在高级中。Key 明文保存在 `~/.config/stylepolish/openai-key`，文件权限 `0600`、目录 `0700`；可选读取 `~/.config/ai-vault/vault.json` 的 `OPENAI_PLATFORM_API_KEY`，优先于本地文件，不访问登录钥匙串。
 
+<!-- readme-illustrate:my-habits -->
+<img src="docs/images/my-habits.png" alt="我的习惯设置页：常写错、不想被改、提醒模型注意，以及恢复和总开关" width="560">
+
+「我的习惯」：本地纠错、忽略后的恢复、语境提醒和总开关。
+<!-- /readme-illustrate:my-habits -->
+<!-- readme-illustrate:weekly-report -->
+<img src="docs/images/weekly-report.png" alt="本周表达报告：采纳率、错字与前七天对比、建议类型、三个常见错字和下周留意" width="720">
+
+「本周表达报告」：最近七天的采纳、忽略、错字对比与下周留意。
+<!-- /readme-illustrate:weekly-report -->
 升级后如果菜单显示「需要授权」，通常是签名变化使旧授权失效。点击状态打开引导，进入系统设置 → 隐私与安全性 → 辅助功能；旧条目开关无效时先选中点「−」移除，再点「+」添加 `/Applications/StylePolish.app`。检测到授权后会自动继续。
 ## 隐私
 
