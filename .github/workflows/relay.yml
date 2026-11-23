@@ -1,0 +1,22 @@
+name: Relay
+on:
+  pull_request:
+    paths: ['relay/**', '.github/workflows/relay.yml']
+  push:
+    paths: ['relay/**', '.github/workflows/relay.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: relay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+      - run: uv sync --frozen
+      - run: uv run --frozen python -m unittest discover -s tests -v
+      - run: uv build
