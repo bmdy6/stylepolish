@@ -1,0 +1,29 @@
+# Copy to config.toml (ignored by Git). Paths are relative to the working directory.
+database = "state/relay.db"
+host = "127.0.0.1"
+port = 8787
+upstream_url = "https://api.openai.com/v1/chat/completions"
+model = "gpt-6-luna"
+service_tier = "priority"
+
+# Use this environment variable OR the unique named value in ai-vault.
+# Do not put the credential itself in this file.
+key_env = "STYLEPOLISH_UPSTREAM_KEY"
+vault_path = "~/.config/ai-vault/vault.json"
+vault_key = "OPENAI_PLATFORM_API_KEY"
+
+invite_usd = "3"
+monthly_usd = "30"
+requests_per_minute = 20
+input_chars = 2000
+body_bytes = 65536
+output_tokens = 2048
+response_bytes = 2097152
+upstream_timeout = 90
+
+# Required: USD per MILLION tokens, from the actual model/tier bill.
+# Replace all three strings. These are intentionally NOT usable sample prices.
+[prices]
+input = "FILL_FROM_ACTUAL_BILL"
+cached_input = "FILL_FROM_ACTUAL_BILL"
+output = "FILL_FROM_ACTUAL_BILL"

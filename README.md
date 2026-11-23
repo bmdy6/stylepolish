@@ -111,3 +111,7 @@ scripts/build-app.sh
 [MIT License](LICENSE)。
 
 [![GitHub stars](https://img.shields.io/github/stars/bmdy6/stylepolish?style=social)](https://github.com/bmdy6/stylepolish) 觉得有用的话，点右上角 ⭐ Star 支持一下。
+
+## 自托管邀请码中转
+
+需要自行发放邀请码并管理额度时，使用独立的 [relay/ 服务](relay/README.md)：支持普通/流式文本请求、每码额度、月总额、限速与用量账本。配置和密钥由部署者提供；默认只监听回环地址。本次仅迁入代码和假上游测试，不包含部署或真实邀请码。
